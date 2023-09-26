@@ -6,6 +6,8 @@
 
 Nested tree tools in python
 
+*`sepes` is an egyptian god who lived in a tree.
+
 ![Tests](https://github.com/ASEM000/sepes/actions/workflows/test_default.yml/badge.svg)
 ![Tests](https://github.com/ASEM000/sepes/actions/workflows/test_jax.yml/badge.svg)
 ![Tests](https://github.com/ASEM000/sepes/actions/workflows/test_numpy.yml/badge.svg)

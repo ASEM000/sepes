@@ -1,6 +1,6 @@
 <!-- <h1 align="center" style="font-family:Monospace" >Py🌲Class</h1> -->
 <h5 align="center">
-<img width="250px" src="https://github.com/ASEM000/sepes/assets/48389287/95e879f2-69d9-420b-bb64-012fa0b4eeb8"> <br>
+<img width="250px" src="docs/_static/logo.svg"> <br>
 
 <br>
 

@@ -1,6 +1,6 @@
 <!-- <h1 align="center" style="font-family:Monospace" >Py🌲Class</h1> -->
 <h5 align="center">
-<img width="250px" src="docs/_static/logo.svg"> <br>
+<img width="350px" src="docs/_static/logo.svg"> <br>
 
 <br>
 

@@ -1,0 +1,71 @@
+[build-systems]
+requires = ["setuptools >= 61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "sepes"
+dynamic = ["version"]
+requires-python = ">=3.8"
+license = { file = "LICENSE" }
+description = "Visualize, create, and operate on nested trees in the most intuitive way possible."
+authors = [{ name = "Mahmoud Asem", email = "mahmoudasem00@gmail.com" }]
+keywords = [
+  "jax",
+  "neural-networks",
+  "functional-programming",
+  "machine-learning",
+]
+dependencies = ["typing-extensions"]
+readme = "README.md"
+
+classifiers = [
+  "Development Status :: 5 - Production/Stable",
+  "Environment :: Console",
+  "Intended Audience :: Science/Research",
+  "Intended Audience :: Developers",
+  "License :: OSI Approved :: Apache Software License",
+  "Operating System :: OS Independent",
+  "Programming Language :: Python",
+  "Programming Language :: Python :: 3",
+  "Topic :: Scientific/Engineering :: Artificial Intelligence",
+  "Topic :: Software Development :: Libraries :: Python Modules",
+]
+
+[project.optional-dependencies]
+default = ["optree"]
+jax = ["jax>=0.4.7"]
+numpy = ["numpy", "optree"]
+torch = ["torch", "optree"]
+
+[tool.setuptools.dynamic]
+version = { attr = "sepes.__version__" }
+
+[tool.setuptools.packages.find]
+include = ["sepes", "sepes.*"]
+
+[project.urls]
+Source = "https://github.com/ASEM000/sepes"
+
+
+[tool.ruff]
+select = ["F", "E", "I", "W", "C90", "N", "D"]
+line-length = 120
+fixable = ["ALL"]
+ignore = [
+  "E731", # do not assign a lambda expression, use a def
+  "N804", # first argument of a classmethod should be named 'cls'
+  "D104", # Missing docstring in public package
+  "D103", # Missing docstring in public function
+  "D411",
+  "N813",
+  "D105",
+  "C901",
+  "B102",
+]
+
+[tool.ruff.pydocstyle]
+convention = "google"
+
+[tool.isort]
+profile = "black"
+line_length = 120

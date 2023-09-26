@@ -1,12 +1,12 @@
 <!-- <h1 align="center" style="font-family:Monospace" >Py🌲Class</h1> -->
 <h5 align="center">
-<img width="350px" src="docs/_static/logo.svg"> <br>
+<img width="250px" src="https://github.com/ASEM000/sepes/assets/48389287/e3b063a4-369c-4157-92ca-017abfa7d26e"> <br>
 
 <br>
 
 Nested tree tools in python
 
-*`sepes` is an egyptian god affiliated with trees.
+\*`sepes` is an egyptian god affiliated with trees.
 
 ![Tests](https://github.com/ASEM000/sepes/actions/workflows/test_default.yml/badge.svg)
 ![Tests](https://github.com/ASEM000/sepes/actions/workflows/test_jax.yml/badge.svg)

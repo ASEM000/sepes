@@ -4,12 +4,7 @@
 
 <br>
 
-[**Installation**](#installation)
-|[**Description**](#description)
-|[**Quick Example**](#quick_example)
-|[**StatefulComputation**](#stateful_computation)
-|[**Benchamrks**](#more)
-|[**Acknowledgements**](#acknowledgements)
+Nested tree tools in python
 
 ![Tests](https://github.com/ASEM000/sepes/actions/workflows/test_default.yml/badge.svg)
 ![Tests](https://github.com/ASEM000/sepes/actions/workflows/test_jax.yml/badge.svg)

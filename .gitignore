@@ -1,0 +1,13 @@
+*.pyc
+**/__pycache__
+**/.ipynb_checkpoints
+**/.DS_Store
+*.Icon
+*.egg-info/
+*.trunk/
+*.vscode/
+dist
+test.ipynb
+build
+experimental
+docs/_build

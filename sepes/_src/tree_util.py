@@ -50,9 +50,13 @@ def tree_copy(tree: T) -> T:
     return treelib.tree_map(lambda x: copy(x), tree)
 
 
+def is_array_like(node) -> bool:
+    return hasattr(node, "shape") and hasattr(node, "dtype")
+
+
 def _is_leaf_rhs_equal(leaf, rhs) -> bool | arraylib.ndarray:
-    if isinstance(leaf, arraylib.ndarray):
-        if isinstance(rhs, arraylib.ndarray):
+    if is_array_like(leaf):
+        if is_array_like(rhs):
             if leaf.shape != rhs.shape:
                 return False
             if leaf.dtype != rhs.dtype:
@@ -70,9 +74,6 @@ def is_tree_equal(*trees: Any) -> bool | arraylib.ndarray:
 
     Note:
         trees are compared using their leaves and treedefs.
-
-    Note:
-        Under boolean ``Array`` if compiled otherwise ``bool``.
     """
     tree0, *rest = trees
     leaves0, treedef0 = treelib.tree_flatten(tree0)

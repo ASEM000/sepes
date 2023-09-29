@@ -66,18 +66,25 @@ class Null:
 
 NULL = Null()
 
-DOC = """\
-Field Information:
-    Name:\t`{field.name}`
-    Default:\t{field.default}
 
-Description:
-    {field.doc}
+def generate_field_doc(field: Field) -> str:
+    out: list[str] = ["Field Information:"]
+    out += [f"\tName:\t\t``{field.name}``"]
+    out += [f"\tDefault:\t``{field.default}``"] if field.default is not NULL else []
+    out += [f"Description:\n\t{field.doc}"] if field.doc else []
 
-Callbacks:
-    - On Setting Attribute: {field.on_setattr}
-    - On Getting Attribute: {field.on_getattr}
-"""
+    if field.on_setattr or field.on_getattr:
+        out += ["Callbacks:"]
+
+    if field.on_setattr:
+        out += ["\t- On setting attribute:\n"]
+        out += [f"\t\t- ``{func}``" for func in field.on_setattr]
+
+    if field.on_getattr:
+        out += ["\t- On getting attribute:\n"]
+        out += [f"\t\t- ``{func}``" for func in field.on_getattr]
+
+    return "\n".join(out)
 
 
 def slots(klass) -> tuple[str, ...]:
@@ -185,7 +192,7 @@ class Field:
     @property
     def __doc__(self) -> str:
         """Return the field documentation."""
-        return DOC.format(field=self)
+        return generate_field_doc(field=self)
 
     def __get__(self: T, instance, _) -> T | Any:
         """Return the field value."""
@@ -237,25 +244,25 @@ def field(
         doc: extra documentation for the :func:.`field` .the complete documentation
             of the field includes the field name, the field doc, and the
             default value, and function callbacks applied on the field value.
+            Mainly used for documenting the field callbacks.
 
             .. code-block:: python
 
                 >>> import sepes as sp
                 >>> @sp.autoinit
                 ... class Tree:
-                ...     leaf: int = sp.field(default=1, doc="Leaf node of the tree.")
+                ...    leaf: int = sp.field(default=1, doc="Leaf node of the tree.", on_setattr=[lambda x:x])
+
                 >>> print(Tree.leaf.__doc__)  # doctest: +SKIP
-                Docstring:  
                 Field Information:
-                    Name:       `leaf`
-                    Default:    1
-
+                        Name:           ``leaf``
+                        Default:        ``1``
                 Description:
-                    Leaf node of the tree.
-
+                        Leaf node of the tree.
                 Callbacks:
-                    - On Setting Attribute: ()
-                    - On Getting Attribute: ()
+                        - On setting attribute:
+
+                                - ``<function Tree.<lambda> at 0x11c53dc60>``
 
     Example:
         Type and range validation using :attr:`on_setattr`:

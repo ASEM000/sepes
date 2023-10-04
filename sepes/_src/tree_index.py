@@ -183,6 +183,9 @@ class IntKey(BaseKey):
     def _(self, other: SequenceKeyType) -> bool:
         return self.idx == other.idx
 
+    def __repr__(self) -> str:
+        return f"{self.idx}"
+
 
 class NameKey(BaseKey):
     def __init__(self, name: str) -> None:
@@ -204,6 +207,9 @@ class NameKey(BaseKey):
     def _(self, other: DictKeyType) -> bool:
         return self.name == other.key
 
+    def __repr__(self) -> str:
+        return f"{self.name}"
+
 
 class EllipsisKey(BaseKey):
     """Match all leaves."""
@@ -213,6 +219,9 @@ class EllipsisKey(BaseKey):
 
     def __eq__(self, _: KeyEntry) -> bool:
         return True
+
+    def __repr__(self) -> str:
+        return "..."
 
 
 class MultiKey(BaseKey):
@@ -263,6 +272,9 @@ class RegexKey(BaseKey):
     @__eq__.register(DictKeyType)
     def _(self, other) -> bool:
         return re.fullmatch(self.pattern, other.key) is not None
+
+    def __repr__(self) -> str:
+        return f"{self.pattern}"
 
 
 # dispatch on type of indexer to convert input item to at indexer

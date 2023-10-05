@@ -300,6 +300,15 @@ _NOT_IMPLEMENTED_INDEXING = """Indexing with {} is not implemented, supported in
 - `tuple` of the above types to match multiple leaves at the same level.
 """
 
+_NO_LEAF_MATCH = """\
+No leaf match is found for where={where}. Available keys are {names}.
+Check the following: 
+  - If where is `str` then check if the key exists as a key or attribute.
+  - If where is `int` then check if the index is in range.
+  - If where is `re.Pattern` then check if the pattern matches any key.
+  - If where is a `tuple` of the above types then check if any of the tuple elements match.
+"""
+
 
 def _generate_path_mask(
     tree: PyTree,
@@ -329,7 +338,9 @@ def _generate_path_mask(
     mask = treelib.tree_path_map(map_func, tree, is_leaf=is_leaf)
 
     if not match:
-        raise LookupError(f"No leaf match is found for {where=}.")
+        path_leaf, _ = treelib.tree_path_flatten(tree, is_leaf=is_leaf)
+        names = ", ".join(treelib.keystr(path) for path, _ in path_leaf)
+        raise LookupError(_NO_LEAF_MATCH.format(where=where, names=names))
 
     return mask
 

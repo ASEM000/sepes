@@ -21,11 +21,7 @@ import pytest
 
 from sepes._src.backend import arraylib, backend, treelib
 from sepes._src.code_build import autoinit
-from sepes._src.tree_base import (
-    TreeClass,
-    add_mutable_entry,
-    discard_mutable_entry,
-)
+from sepes._src.tree_base import TreeClass, add_mutable_entry, discard_mutable_entry
 from sepes._src.tree_index import AtIndexer, BaseKey
 from sepes._src.tree_util import is_tree_equal, leafwise
 
@@ -477,7 +473,7 @@ def test_call_context():
         t.delete("a")
 
 
-@pytest.mark.parametrize("where", [(None,), ("a", [1]), (0, [1])])
+@pytest.mark.parametrize("where", [("a", [1]), (0, [1])])
 def test_unsupported_where(where):
     t = namedtuple("a", ["x", "y"])(1, 2)
     with pytest.raises(NotImplementedError):
@@ -579,3 +575,9 @@ def test_repr_str():
     assert repr(t.at["a"]) == "TreeClassIndexer(tree=Tree(a=1, b=2), where=('a',))"
     assert str(t.at["a"]) == "TreeClassIndexer(tree=Tree(a=1, b=2), where=('a',))"
     assert repr(t.at[...]) == "TreeClassIndexer(tree=Tree(a=1, b=2), where=(Ellipsis,))"
+
+
+def test_compat_mask():
+    tree = [1, 2, [3, 4]]
+    tree_ = AtIndexer(tree)[[False, False, True]].set(10)
+    assert tree_ == [1, 2, 10]

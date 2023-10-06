@@ -290,11 +290,12 @@ indexer_dispatcher.register(re.Pattern, RegexKey)
 BaseKey.def_alias = indexer_dispatcher.register
 
 
-_NOT_IMPLEMENTED_INDEXING = """Indexing with {} is not implemented, supported indexing types are:
+_INVALID_INDEXER = """\
+Indexing with {indexer} is not implemented, supported indexing types are:
 - `str` for mapping keys or class attributes.
 - `int` for positional indexing for sequences.
 - `...` to select all leaves.
-- Boolean mask of the same structure as the tree
+- Boolean mask of a compatible structure as the pytree.
 - `re.Pattern` to index all keys matching a regex pattern.
 - Instance of `BaseKey` with custom logic to index a pytree.
 - `tuple` of the above types to match multiple leaves at the same level.
@@ -359,8 +360,8 @@ def _is_bool_leaf(leaf: Any) -> bool:
 
 
 def _resolve_where(
-    tree: T,
     where: tuple[Any, ...],  # type: ignore
+    tree: T,
     is_leaf: Callable[[Any], None] | None = None,
 ) -> T | None:
     # given a pytree `tree` and a `where` path, that is composed of keys or
@@ -381,8 +382,20 @@ def _resolve_where(
         # used with `is_leaf` argument of any `tree_*` function
         leaves, treedef = treelib.tree_flatten(x)
 
-        if treedef == treedef0 and all(map(_is_bool_leaf, leaves)):
-            # boolean pytrees of same structure as `tree` is a valid indexing pytree
+        if all(map(_is_bool_leaf, leaves)):
+            # if all leaves are boolean then this is maybe a boolean mask.
+            # Maybe because the boolean mask can be a valid pytree of same structure
+            # as the pytree to be indexed or _compatible_ structure.
+            # that can be flattend up to inside tree_map.
+            # the following is an example showcase this:
+            # >>> tree = [1, 2, [3, 4]]
+            # >>> mask = [True, True, False]
+            # >>> AtIndexer(tree)[mask].get()
+            # in essence the user can mark full subtrees by `False` without
+            # needing to populate the subtree with `False` values. if treedef
+            # check is mandated then the user will need to populate the subtree
+            # with `False` values. i.e. mask = [True, True, [False, False]]
+            # Finally, invalid boolean mask will be caught by `jax.tree_util`
             bool_masks += [x]
             return True
 
@@ -398,7 +411,7 @@ def _resolve_where(
             return False
 
         # not a container of other keys or a pytree of same structure
-        raise NotImplementedError(_NOT_IMPLEMENTED_INDEXING.format(x))
+        raise NotImplementedError(_INVALID_INDEXER.format(indexer=x, treedef=treedef0))
 
     for level_keys in where:
         # each for loop iteration is a level in the where path
@@ -528,10 +541,10 @@ class AtIndexer(NamedTuple):
             >>> tree.at['a'].get()
             Tree(a=1, b=None)
         """
-        where = _resolve_where(self.tree, self.where, is_leaf)
+        where = _resolve_where(self.where, self.tree, is_leaf)
         config = dict(is_leaf=is_leaf, is_parallel=is_parallel)
 
-        def leaf_get(leaf: Any, where: Any):
+        def leaf_get(where: Any, leaf: Any):
             # support both array and non-array leaves
             # for array boolean mask we select **parts** of the array that
             # matches the mask, for example if the mask is Array([True, False, False])
@@ -542,7 +555,7 @@ class AtIndexer(NamedTuple):
             # and `None` otherwise
             return leaf if where else None
 
-        return treelib.tree_map(leaf_get, self.tree, where, **config)
+        return treelib.tree_map(leaf_get, where, self.tree, **config)
 
     def set(
         self,
@@ -586,10 +599,10 @@ class AtIndexer(NamedTuple):
             >>> tree.at['a'].set(100)
             Tree(a=100, b=2)
         """
-        where = _resolve_where(self.tree, self.where, is_leaf)
+        where = _resolve_where(self.where, self.tree, is_leaf)
         config = dict(is_leaf=is_leaf, is_parallel=is_parallel)
 
-        def leaf_set(leaf: Any, where: Any, set_value: Any):
+        def leaf_set(where: Any, leaf: Any, set_value: Any):
             # support both array and non-array leaves
             # for array boolean mask we select **parts** of the array that
             # matches the mask, for example if the mask is Array([True, False, False])
@@ -608,12 +621,12 @@ class AtIndexer(NamedTuple):
             # to tree2 leaves if tree2 is a pytree of same structure as tree
             # instead of making each leaf of tree a copy of tree2
             # is design is similar to ``numpy`` design `np.at[...].set(Array)`
-            return treelib.tree_map(leaf_set, self.tree, where, set_value, **config)
+            return treelib.tree_map(leaf_set, where, self.tree, set_value, **config)
 
         # set_value is broadcasted to tree leaves
         # for example tree.at[where].set(1) will set all tree leaves to 1
-        leaf_set_ = lambda leaf, where: leaf_set(leaf, where, set_value)
-        return treelib.tree_map(leaf_set_, self.tree, where, **config)
+        leaf_set_ = lambda where, leaf: leaf_set(where, leaf, set_value)
+        return treelib.tree_map(leaf_set_, where, self.tree, **config)
 
     def apply(
         self,
@@ -664,10 +677,10 @@ class AtIndexer(NamedTuple):
             >>> indexer = sp.AtIndexer({"lenna": "lenna.png", "baboon": "baboon.png"})
             >>> images = indexer[...].apply(imread, parallel=dict(max_workers=2))  # doctest: +SKIP
         """
-        where = _resolve_where(self.tree, self.where, is_leaf)
+        where = _resolve_where(self.where, self.tree, is_leaf)
         config = dict(is_leaf=is_leaf, is_parallel=is_parallel)
 
-        def leaf_apply(leaf: Any, where: bool):
+        def leaf_apply(where: Any, leaf: Any):
             # same as `leaf_set` but with `func` applied to the leaf
             # one thing to note is that, the where mask select an array
             # then the function needs work properly when applied to the selected
@@ -676,7 +689,7 @@ class AtIndexer(NamedTuple):
                 return arraylib.where(where, func(leaf), leaf)
             return func(leaf) if where else leaf
 
-        return treelib.tree_map(leaf_apply, self.tree, where, **config)
+        return treelib.tree_map(leaf_apply, where, self.tree, **config)
 
     def scan(
         self,
@@ -737,7 +750,7 @@ class AtIndexer(NamedTuple):
             them with final state. While ``reduce`` applies a binary ``func`` to the
             leaf values while carrying a state and returning a single value.
         """
-        where = _resolve_where(self.tree, self.where, is_leaf)
+        where = _resolve_where(self.where, self.tree, is_leaf)
 
         running_state = state
 
@@ -746,12 +759,12 @@ class AtIndexer(NamedTuple):
             leaf, running_state = func(leaf, running_state)
             return leaf
 
-        def leaf_apply(leaf: Any, where: bool):
+        def leaf_apply(where: Any, leaf: Any):
             if isinstance(where, arraylib.ndarray):
                 return arraylib.where(where, stateless_func(leaf), leaf)
             return stateless_func(leaf) if where else leaf
 
-        out = treelib.tree_map(leaf_apply, self.tree, where, is_leaf=is_leaf)
+        out = treelib.tree_map(leaf_apply, where, self.tree, is_leaf=is_leaf)
         return out, running_state
 
     def reduce(
@@ -789,7 +802,7 @@ class AtIndexer(NamedTuple):
             >>> tree.at[...].reduce(lambda a, b: a + b, initializer=0)
             3
         """
-        where = _resolve_where(self.tree, self.where, is_leaf)
+        where = _resolve_where(self.where, self.tree, is_leaf)
         tree = self[where].get(is_leaf=is_leaf)  # type: ignore
         leaves, _ = treelib.tree_flatten(tree, is_leaf=is_leaf)
         if initializer is _no_initializer:

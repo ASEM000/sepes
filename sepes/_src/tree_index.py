@@ -800,8 +800,7 @@ class AtIndexer:
             >>> tree.at[...].reduce(lambda a, b: a + b, initializer=0)
             3
         """
-        where = _resolve_where(self.where, self.tree, is_leaf)
-        tree = self[where].get(is_leaf=is_leaf)  # type: ignore
+        tree = self.get(is_leaf=is_leaf)  # type: ignore
         leaves, _ = treelib.tree_flatten(tree, is_leaf=is_leaf)
         if initializer is _no_initializer:
             return ft.reduce(func, leaves)

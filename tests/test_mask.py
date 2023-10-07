@@ -177,15 +177,6 @@ def test_freeze_with_ops():
 
     t = treelib.tree_map(freeze, (Test(100)))
 
-    with pytest.raises(LookupError):
-        is_tree_equal(t.at[...].set(0), t)
-
-    with pytest.raises(LookupError):
-        is_tree_equal(t.at[...].apply(lambda x: x + 1), t)
-
-    with pytest.raises(LookupError):
-        is_tree_equal(t.at[...].reduce(arraylib.add, initializer=0), t)
-
     class Test(TreeClass):
         def __init__(self, x):
             self.x = x

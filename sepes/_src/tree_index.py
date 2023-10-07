@@ -32,7 +32,7 @@ import abc
 import functools as ft
 import re
 from typing import Any, Callable, Hashable, NamedTuple, Tuple, TypeVar
-
+from typing_extensions import Self
 from sepes._src.backend import arraylib, treelib
 from sepes._src.backend.treelib.base import ParallelConfig
 
@@ -431,7 +431,7 @@ def _resolve_where(
     return mask
 
 
-class AtIndexer(NamedTuple):
+class AtIndexer:
     """Index a pytree at a given path using a path or mask.
 
     Args:
@@ -487,15 +487,17 @@ class AtIndexer(NamedTuple):
         Tree(a=1, b=None)
     """
 
-    tree: PyTree
-    where: tuple[BaseKey | PyTree] | tuple[()] = ()
+    def __init__(self, tree: PyTree, where: tuple[BaseKey | PyTree] | tuple[()] = ()):
+        self.tree = tree
+        self.where = where
 
-    def __getitem__(self, where: Any) -> AtIndexer:
-        # AtIndexer[where] will extend the current path with `where`
-        # for example AtIndexer[where1][where2] will extend the current path
-        # with `where1` and `where2` to indicate the path to the leaves to
-        # select.
+    def __getitem__(self, where: str) -> Self:
+        # syntax sugar for extending the current path with `where`
+        # AtIndexer(tree)[`where1`][`where2`] -> AtIndexer(tree, (`where1`, `where2`))
         return type(self)(self.tree, (*self.where, where))
+
+    def __repr__(self) -> str:
+        return f"{type(self).__name__}(tree={self.tree}, where={self.where})"
 
     def get(
         self,

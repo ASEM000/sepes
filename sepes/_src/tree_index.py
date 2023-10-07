@@ -41,11 +41,7 @@ S = TypeVar("S")
 PyTree = Any
 EllipsisType = TypeVar("EllipsisType")
 KeyEntry = TypeVar("KeyEntry", bound=Hashable)
-TypeEntry = TypeVar("TypeEntry", bound=type)
-TraceEntry = Tuple[KeyEntry, TypeEntry]
 KeyPath = Tuple[KeyEntry, ...]
-TypePath = Tuple[TypeEntry, ...]
-TraceType = Tuple[KeyPath, TypePath]
 _no_initializer = object()
 
 SequenceKeyType = type(treelib.sequence_key(0))

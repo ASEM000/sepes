@@ -98,6 +98,7 @@ if backend == "default":
     for backend_name in ["jax", "torch", "numpy", "default"]:
         if is_available(backend_name):
             arraylib, treelib = backends_map[backend_name]()
+            backend = backend_name
             logging.info(f"Successfully set backend to `{backend_name}`")
             break
 

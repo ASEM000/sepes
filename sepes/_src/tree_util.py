@@ -397,38 +397,38 @@ def leafwise(klass: type[T]) -> type[T]:
 _, atomicdef = treelib.tree_flatten(1)
 
 
-def flatten_one_typed_path_level(
-    typedpath: KeyTypePath,
-    tree: PyTree,
-    is_leaf: Callable[[Any], bool] | None,
-    is_path_leaf: Callable[[KeyTypePath], bool] | None,
-):
-    # predicate and type path
-    if (is_leaf and is_leaf(tree)) or (is_path_leaf and is_path_leaf(typedpath)):
-        yield typedpath, tree
-        return
-
-    one_level_is_leaf = lambda node: False if (id(node) == id(tree)) else True
-    path_leaf, treedef = treelib.tree_path_flatten(tree, is_leaf=one_level_is_leaf)
-
-    if treedef == atomicdef:
-        yield typedpath, tree
-        return
-
-    for key, value in path_leaf:
-        keys, types = typedpath
-        path = ((*keys, *key), (*types, type(value)))
-        yield from flatten_one_typed_path_level(path, value, is_leaf, is_path_leaf)
-
-
-def tree_leaves_with_typed_path(
+def tree_typed_path_leaves(
     tree: PyTree,
     *,
     is_leaf: Callable[[Any], bool] | None = None,
     is_path_leaf: Callable[[KeyTypePath], bool] | None = None,
 ) -> Sequence[tuple[KeyTypePath, Any]]:
     # mainly used for visualization
-    return list(flatten_one_typed_path_level(((), ()), tree, is_leaf, is_path_leaf))
+    def flatten_one_level(typedpath: KeyTypePath, tree: PyTree):
+        # predicate and type path
+        if (is_leaf and is_leaf(tree)) or (is_path_leaf and is_path_leaf(typedpath)):
+            yield typedpath, tree
+            return
+
+        def one_level_is_leaf(node) -> bool:
+            if is_leaf and is_leaf(node):
+                return True
+            if id(node) == id(tree):
+                return False
+            return True
+
+        path_leaf, treedef = treelib.tree_path_flatten(tree, is_leaf=one_level_is_leaf)
+
+        if treedef == atomicdef:
+            yield typedpath, tree
+            return
+
+        for key, value in path_leaf:
+            keys, types = typedpath
+            path = ((*keys, *key), (*types, type(value)))
+            yield from flatten_one_level(path, value)
+
+    return list(flatten_one_level(((), ()), tree))
 
 
 class Node:
@@ -482,10 +482,10 @@ def construct_tree(
     is_leaf: Callable[[Any], bool] | None = None,
     is_path_leaf: Callable[[KeyTypePath], bool] | None = None,
 ) -> Node:
-    # construct a tree with `Node` objects using `tree_leaves_with_typed_path`
+    # construct a tree with `Node` objects using `tree_typed_path_leaves`
     # to establish parent-child relationship between nodes
 
-    traces_leaves = tree_leaves_with_typed_path(
+    traces_leaves = tree_typed_path_leaves(
         tree,
         is_leaf=is_leaf,
         is_path_leaf=is_path_leaf,

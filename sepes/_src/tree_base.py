@@ -210,8 +210,8 @@ class TreeClass(metaclass=TreeClassMeta):
         Tree(a=1, b=None)
 
     Note:
-        - Under ``jax.tree_util.***`` all :class:`.TreeClass` attributes are
-          treated as leaves.
+        - Under ``jax.tree_util.***`` or ``optree`` all :class:`.TreeClass`
+          attributes are treated as leaves.
         - To hide/ignore a specific attribute from the tree leaves, during
           ``jax.tree_util.***`` operations, freeze the leaf using :func:`.freeze`
           or :func:`.tree_mask`.

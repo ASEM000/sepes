@@ -33,7 +33,7 @@ from sepes._src.tree_util import (
     Node,
     construct_tree,
     is_path_leaf_depth_factory,
-    tree_leaves_with_typed_path,
+    tree_typed_path_leaves,
 )
 
 
@@ -626,7 +626,7 @@ def tree_summary(
     rows = [["Name", "Type", "Count", "Size"]]
     tcount = tsize = 0
 
-    traces_leaves = tree_leaves_with_typed_path(
+    traces_leaves = tree_typed_path_leaves(
         tree,
         is_leaf=is_leaf,
         is_path_leaf=is_path_leaf_depth_factory(depth),

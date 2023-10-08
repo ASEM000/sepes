@@ -1,6 +1,6 @@
 # Changelog
 
-## V0.Next
+## V0.11
 
 - Mark full subtrees for replacement.
 
@@ -52,10 +52,10 @@
   ```python
   LookupError: No leaf match is found for where=[a, d]. Available keys are ['a']['b'], ['a']['c'], ['d'].
   Check the following:
-    - If where is `str` then check if the key exists as a key or attribute.
-    - If where is `int` then check if the index is in range.
-    - If where is `re.Pattern` then check if the pattern matches any key.
-    - If where is a `tuple` of the above types then check if any of the tuple elements match.
+      - If where is `str` then check if the key exists as a key or attribute.
+      - If where is `int` then check if the index is in range.
+      - If where is `re.Pattern` then check if the pattern matches any key.
+      - If where is a `tuple` of the above types then check if any of the tuple elements match.
   ```
 
 - Extract subtrees with `pluck`
@@ -88,6 +88,33 @@
 
   ```python
   [tree["a"], tree["b"][1]]
+  ```
+
+  To get the first `n` matches, use `pluck(n)`.
+
+  _A simple application of pluck is to share reference using a descriptor-based approach:_
+
+  ```python
+  import sepes as sp
+  marker = object()
+  class Tie:
+      def __set_name__(self, owner, name):
+          self.name = name
+      def __set__(self, instance, indexer):
+          self.where = indexer.where
+          where_str = "/".join(map(str, self.where))
+          vars(instance)[self.name] = f"Ref:{where_str}"
+      def __get__(self, instance, owner):
+          (subtree,) = sp.AtIndexer(instance, self.where).pluck(1)
+          return subtree
+
+  class Tree(sp.TreeClass):
+      shared: Tie = Tie()
+      def __init__(self):
+          self.lookup = dict(a=marker, b=2)
+          self.shared = self.at["lookup"]["a"]
+  tree = Tree()
+  assert tree.lookup["a"] is tree.shared
   ```
 
 ## v0.10.0

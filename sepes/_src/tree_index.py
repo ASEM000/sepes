@@ -31,7 +31,7 @@ from __future__ import annotations
 import abc
 import functools as ft
 import re
-from typing import Any, Callable, Hashable, NamedTuple, Tuple, TypeVar
+from typing import Any, Callable, Hashable, Tuple, TypeVar
 from typing_extensions import Self
 from sepes._src.backend import arraylib, treelib
 from sepes._src.backend.treelib.base import ParallelConfig
@@ -901,6 +901,7 @@ class AtIndexer:
 
     def pluck(
         self,
+        count: int | None = None,
         *,
         is_leaf: Callable[[Any], None] | None = None,
         is_parallel: bool | ParallelConfig = False,
@@ -908,6 +909,8 @@ class AtIndexer:
         """Extract subtrees at the specified location.
 
         Args:
+            count: number of subtrees to extract, Default to ``None`` to
+                extract all subtrees.
             is_leaf: a predicate function to determine if a value is a leaf.
             is_parallel: accepts the following:
 
@@ -955,17 +958,21 @@ class AtIndexer:
         """
         tree = self.get(is_leaf=is_leaf, is_parallel=is_parallel)
         subtrees: list[Any] = []
+        count = float("inf") if count is None else count
 
-        def aggregate_subtree(node: Any) -> bool:
-            nonlocal subtrees
+        def aggregate_subtrees(node: Any) -> bool:
+            nonlocal subtrees, count
+            if count < 1:
+                return True
+            leaves, _ = treelib.tree_flatten(node, is_leaf=lambda x: x is None)
             # in essence if the subtree does not contain any None leaves
             # then it is a valid subtree to be plucked
             # this because `get` sets the non-selected leaves to None
-            leaves, _ = treelib.tree_flatten(node, is_leaf=lambda x: x is None)
             if all(leaf is not None for leaf in leaves):
                 subtrees += [node]
+                count -= 1
                 return True
             return False
 
-        treelib.tree_flatten(tree, is_leaf=aggregate_subtree)
+        treelib.tree_flatten(tree, is_leaf=aggregate_subtrees)
         return subtrees

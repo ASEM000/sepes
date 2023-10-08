@@ -96,10 +96,10 @@
 
 - Supports multibackend:
 
-  - `numpy` + `optree` via `export sepes_BACKEND=numpy` (lightweight option)
-  - `jax` via `export sepes_BACKEND=jax` - The default -
-  - `torch` + `optree` via `export sepes_BACKEND=torch`
-  - no array + `optree` via `export sepes_BACKEND=default`
+  - `numpy` + `optree` via `export SEPES_BACKEND=numpy` (lightweight option)
+  - `jax` via `export SEPES_BACKEND=jax` - The default -
+  - `torch` + `optree` via `export SEPES_BACKEND=torch`
+  - no array + `optree` via `export SEPES_BACKEND=default`
 
 - drop `callback` option in parallel options in `is_parallel`
 - Add parallel processing via `is_parallel` to `.{get,set}`

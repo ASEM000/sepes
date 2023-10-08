@@ -38,7 +38,6 @@ from sepes._src.backend.treelib.base import ParallelConfig
 
 T = TypeVar("T")
 S = TypeVar("S")
-PyTree = Any
 EllipsisType = TypeVar("EllipsisType")
 KeyEntry = TypeVar("KeyEntry", bound=Hashable)
 KeyPath = Tuple[KeyEntry, ...]
@@ -237,6 +236,9 @@ class MultiKey(BaseKey):
     def __eq__(self, entry) -> bool:
         return any(entry == key for key in self.keys)
 
+    def __repr__(self) -> str:
+        return f"({', '.join(map(repr, self.keys))})"
+
 
 class RegexKey(BaseKey):
     """Match a leaf with a regex pattern inside 'at' property.
@@ -318,19 +320,6 @@ Check the following:
 _, atomicdef = treelib.tree_flatten(0)
 
 
-def one_level_tree_path_map(func, tree, *, is_leaf=None):
-    # apply func to the immediate children of tree
-    def is_leaf_func(node) -> bool:
-        # enable immediate children only
-        if is_leaf and is_leaf(node) is True:
-            return True
-        if id(node) == id(tree):
-            return False
-        return True
-
-    return treelib.tree_path_map(func, tree, is_leaf=is_leaf_func)
-
-
 def generate_path_mask(tree, where: tuple[BaseKey, ...], *, is_leaf=None):
     # given a pytree `tree` and a `where` path, that is composed of keys
     # generate a boolean mask that will be eventually used to with `tree_map`
@@ -338,6 +327,18 @@ def generate_path_mask(tree, where: tuple[BaseKey, ...], *, is_leaf=None):
     # for example for a tree = [[1, 2], 3, 4] and where = [0][1] then
     # generate [[False, True], False, False] mask
     match: bool = False
+
+    def one_level_tree_path_map(func, tree):
+        # apply func to the immediate children of tree
+        def is_leaf_func(node) -> bool:
+            # enable immediate children only
+            if is_leaf and is_leaf(node) is True:
+                return True
+            if id(node) == id(tree):
+                return False
+            return True
+
+        return treelib.tree_path_map(func, tree, is_leaf=is_leaf_func)
 
     if any(mask.broadcastable for mask in where):
         # should the selected subtree be broadcasted to the full tree
@@ -349,7 +350,7 @@ def generate_path_mask(tree, where: tuple[BaseKey, ...], *, is_leaf=None):
         # value is 100 then the result will be [[100, 100], 3, 4]
         # and without broadcast the result will be [100, 3, 4]
 
-        def bool_tree(value: bool, tree: Any, *, is_leaf=None):
+        def bool_tree(value: bool, tree: Any):
             leaves, treedef = treelib.tree_flatten(tree, is_leaf=is_leaf)
             return treelib.tree_unflatten(treedef, [value] * len(leaves))
 
@@ -357,37 +358,41 @@ def generate_path_mask(tree, where: tuple[BaseKey, ...], *, is_leaf=None):
         false_tree = ft.partial(bool_tree, False)
 
     else:
-        true_tree = lambda _, *, is_leaf: True
-        false_tree = lambda _, *, is_leaf: False
+        # no broadcast, the user defined value will be applied to the selected
+        # subtree only, for example if the user defined value is 100 then the
+        true_tree = lambda _: True
+        false_tree = lambda _: False
 
     def path_map_func(path, leaf):
-        # this function is evaluated depth-first manner via
-        # `one_level_tree_path_map` to generate a boolean mask
         nonlocal match, where
 
-        if len(path) < len(where):
-            (ki, *kr), (pi, *_) = where, path
-            if ki == pi:
-                # traverse depth-first with reduced `where` path
-                where = kr
-                out_tree = one_level_tree_path_map(path_map_func, leaf, is_leaf=is_leaf)
-                # restore `where` path for the traversal of the next sibling
-                where = (ki, *kr)
-                return out_tree
-            # exit early if the current entry in `where` path does not match
-            # the current entry in `path` path
-            return false_tree(leaf, is_leaf=is_leaf)
-
+        # ensure that the path is not empty
         if len(path) == len(where):
             for pi, ki in zip(path, where):
                 if pi != ki:
-                    return false_tree(leaf, is_leaf=is_leaf)
+                    return false_tree(leaf)
             match = True
-            return true_tree(leaf, is_leaf=is_leaf)
-        # length of the path is greater than the length of `where` path
-        # e.g. where = [0][1] and path = [0][1][2] then the current path
-        # is not a match
-        return false_tree(leaf, is_leaf=is_leaf)
+            return true_tree(leaf)
+
+        if len(path) and len(path) < len(where):
+            # before traversing deeper into the tree, check if the current
+            # path entry matches the current where entry, if not then return
+            # a false tree to stop traversing deeper into the tree.
+            (cur_where, *rest_where), (cur_path, *_) = where, path
+            if cur_where == cur_path:
+                # where is nonlocal to the function
+                # so reduce the where path by one level and traverse deeper
+                # then restore the where path to the original value before
+                # returning the result
+                where = rest_where
+                # traverse deeper into the tree
+                out_tree = one_level_tree_path_map(path_map_func, leaf)
+                # return from the traversal
+                where = (cur_where, *rest_where)
+                return out_tree
+            return false_tree(leaf)
+
+        return false_tree(leaf)
 
     mask = one_level_tree_path_map(path_map_func, tree)
 
@@ -424,17 +429,16 @@ def resolve_where(
     mask = None
     bool_masks: list[T] = []
     path_masks: list[BaseKey] = []
-    _, treedef0 = treelib.tree_flatten(tree, is_leaf=is_leaf)
     seen_tuple = False  # handle multiple keys at the same level
     level_paths = []
 
-    def verify_and_aggregate_is_leaf(x) -> bool:
+    def verify_and_aggregate_is_leaf(node: Any) -> bool:
         # use is_leaf with non-local to traverse the tree depth-first manner
         # required for verifying if a pytree is a valid indexing pytree
         nonlocal seen_tuple, level_paths, bool_masks
         # used to check if a pytree is a valid indexing pytree
         # used with `is_leaf` argument of any `tree_*` function
-        leaves, treedef = treelib.tree_flatten(x)
+        leaves, _ = treelib.tree_flatten(node)
 
         if all(map(is_bool_leaf, leaves)):
             # if all leaves are boolean then this is maybe a boolean mask.
@@ -450,16 +454,16 @@ def resolve_where(
             # check is mandated then the user will need to populate the subtree
             # with `False` values. i.e. mask = [True, True, [False, False]]
             # Finally, invalid boolean mask will be caught by `jax.tree_util`
-            bool_masks += [x]
+            bool_masks += [node]
             return True
 
-        if isinstance(resolved_key := indexer_dispatcher(x), BaseKey):
+        if isinstance(resolved_key := indexer_dispatcher(node), BaseKey):
             # valid resolution of `BaseKey` is a valid indexing leaf
             # makes it possible to dispatch on multi-leaf pytree
             level_paths += [resolved_key]
             return False
 
-        if type(x) is tuple and seen_tuple is False:
+        if type(node) is tuple and seen_tuple is False:
             # e.g. `at[1,2,3]` but not `at[1,(2,3)]``
             # i.e. inside `__getitem__` mutliple entries are transformed to a tuple
             seen_tuple = True
@@ -468,7 +472,7 @@ def resolve_where(
         # not a container of other keys or a pytree of same structure
         # emit a descriptive error message to the user by pointing to the
         # the available keys in the pytree.
-        raise NotImplementedError(_INVALID_INDEXER.format(indexer=x, treedef=treedef0))
+        raise NotImplementedError(_INVALID_INDEXER.format(indexer=node))
 
     for level_keys in where:
         # each for loop iteration is a level in the where path
@@ -550,7 +554,7 @@ class AtIndexer:
         Tree(a=1, b=None)
     """
 
-    def __init__(self, tree: PyTree, where: tuple[BaseKey | PyTree] | tuple[()] = ()):
+    def __init__(self, tree: Any, where: tuple[BaseKey | Any] | tuple[()] = ()):
         self.tree = tree
         self.where = where
 
@@ -570,7 +574,7 @@ class AtIndexer:
         *,
         is_leaf: Callable[[Any], None] | None = None,
         is_parallel: bool | ParallelConfig = False,
-    ) -> PyTree:
+    ):
         """Get the leaf values at the specified location.
 
         Args:
@@ -579,6 +583,7 @@ class AtIndexer:
 
                 - ``bool``: apply ``func`` in parallel if ``True`` otherwise in serial.
                 - ``dict``: a dict of of:
+
                     - ``max_workers``: maximum number of workers to use.
                     - ``kind``: kind of pool to use, either ``thread`` or ``process``.
 
@@ -641,6 +646,7 @@ class AtIndexer:
 
                 - ``bool``: apply ``func`` in parallel if ``True`` otherwise in serial.
                 - ``dict``: a dict of of:
+
                     - ``max_workers``: maximum number of workers to use.
                     - ``kind``: kind of pool to use, either ``thread`` or ``process``.
 
@@ -720,6 +726,7 @@ class AtIndexer:
 
                 - ``bool``: apply ``func`` in parallel if ``True`` otherwise in serial.
                 - ``dict``: a dict of of:
+
                     - ``max_workers``: maximum number of workers to use.
                     - ``kind``: kind of pool to use, either ``thread`` or ``process``.
 
@@ -777,7 +784,7 @@ class AtIndexer:
         state: S,
         *,
         is_leaf: Callable[[Any], None] | None = None,
-    ) -> tuple[PyTree, S]:
+    ) -> tuple[Any, S]:
         """Apply a function while carrying a state.
 
         Args:
@@ -891,3 +898,74 @@ class AtIndexer:
         if initializer is _no_initializer:
             return ft.reduce(func, leaves)
         return ft.reduce(func, leaves, initializer)
+
+    def pluck(
+        self,
+        *,
+        is_leaf: Callable[[Any], None] | None = None,
+        is_parallel: bool | ParallelConfig = False,
+    ) -> list[Any]:
+        """Extract subtrees at the specified location.
+
+        Args:
+            is_leaf: a predicate function to determine if a value is a leaf.
+            is_parallel: accepts the following:
+
+                - ``bool``: apply ``func`` in parallel if ``True`` otherwise in serial.
+                - ``dict``: a dict of of:
+
+                    - ``max_workers``: maximum number of workers to use.
+                    - ``kind``: kind of pool to use, either ``thread`` or ``process``.
+
+        Returns:
+            A list of subtrees at the specified location.
+
+        Note:
+            Compared to ``get``, ``pluck`` extracts subtrees at the specified
+            location and returns a list of subtrees. While ``get`` returns a
+            pytree with the leaf values at the specified location and set the
+            non-selected leaf values to ``None``.
+
+        Example:
+            >>> import sepes as sp
+            >>> tree = {"a": 1, "b": [1, 2, 3]}
+            >>> indexer = sp.AtIndexer(tree)  # construct an indexer
+            <BLANKLINE>
+            >>> # `pluck` returns a list of selected subtrees
+            >>> indexer["b"].pluck()
+            [[1, 2, 3]]
+            <BLANKLINE>
+            >>> # `get` returns same pytree
+            >>> indexer["b"].get()
+            {'a': None, 'b': [1, 2, 3]}
+
+        Example:
+            ``pluck`` with mask
+
+            >>> import sepes as sp
+            >>> tree = {"a": 1, "b": [2, 3, 4]}
+            >>> mask = {"a": True, "b": [False, True, False]}
+            >>> indexer = sp.AtIndexer(tree)
+            >>> indexer[mask].pluck()
+            [1, 3]
+
+            This is equivalent to the following:
+
+            >>> [tree["a"], tree["b"][1]]
+        """
+        tree = self.get(is_leaf=is_leaf, is_parallel=is_parallel)
+        subtrees: list[Any] = []
+
+        def aggregate_subtree(node: Any) -> bool:
+            nonlocal subtrees
+            # in essence if the subtree does not contain any None leaves
+            # then it is a valid subtree to be plucked
+            # this because `get` sets the non-selected leaves to None
+            leaves, _ = treelib.tree_flatten(node, is_leaf=lambda x: x is None)
+            if not any(leaf is None for leaf in leaves):
+                subtrees += [node]
+                return True
+            return False
+
+        treelib.tree_flatten(tree, is_leaf=aggregate_subtree)
+        return subtrees

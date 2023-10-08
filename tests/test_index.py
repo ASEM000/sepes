@@ -581,3 +581,9 @@ def test_compat_mask():
     tree = [1, 2, [3, 4]]
     tree_ = AtIndexer(tree)[[False, False, True]].set(10)
     assert tree_ == [1, 2, 10]
+
+
+def test_pluck():
+    tree = [1, 2, [3, 4]]
+    subtrees = AtIndexer(tree)[2].pluck()
+    assert subtrees[0] == [3, 4]

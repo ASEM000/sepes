@@ -10,7 +10,8 @@
         set,
         apply,
         scan,
-        reduce
+        reduce,
+        pluck
 .. autoclass:: BaseKey
     :members:
         __eq__

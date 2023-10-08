@@ -21,7 +21,8 @@ import os
 from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor
 from typing import Any, Callable, Hashable, Iterable, Literal, Tuple, TypedDict, TypeVar
 
-namespace: str = os.environ.get("sepes_NAMESPACE", "sepes")
+# optree namespace identifier
+namespace: str = os.environ.get("SEPES_NAMESPACE", "sepes")
 
 Tree = TypeVar("Tree", bound=Any)
 Leaf = TypeVar("Leaf", bound=Any)

@@ -17,28 +17,16 @@ from __future__ import annotations
 import functools as ft
 import os
 from importlib.util import find_spec
-
-backend = os.environ.get("sepes_BACKEND", "").lower()
+from typing import Literal, Callable
+import logging
 
 
 @ft.lru_cache(maxsize=None)
-def is_available(backend):
+def is_available(backend: str) -> bool:
     return find_spec(backend) is not None
 
 
-if backend == "":
-    # backend promotion
-    if is_available("jax"):
-        backend = "jax"
-    elif is_available("torch"):
-        backend = "torch"
-    elif is_available("numpy"):
-        backend = "numpy"
-    else:
-        backend = "default"
-
-
-if backend == "default":
+def default_backend():
     # no backend is available
     if not is_available("optree"):
         raise ImportError("No backend is available. Please install `optree`.")
@@ -48,8 +36,10 @@ if backend == "default":
 
     arraylib = NoArray()
     treelib = OpTreeTreeLib()
+    return arraylib, treelib
 
-elif backend == "jax":
+
+def jax_backend():
     if not is_available("jax"):
         raise ImportError("`jax` backend requires `jax` to be installed.")
 
@@ -58,8 +48,10 @@ elif backend == "jax":
 
     arraylib = JaxArray()
     treelib = JaxTreeLib()
+    return arraylib, treelib
 
-elif backend == "numpy":
+
+def numpy_backend():
     if not is_available("optree"):
         raise ImportError("`numpy` backend requires `optree` to be installed.")
 
@@ -71,8 +63,10 @@ elif backend == "numpy":
 
     arraylib = NumpyArray()
     treelib = OpTreeTreeLib()
+    return arraylib, treelib
 
-elif backend == "torch":
+
+def torch_backend():
     if not is_available("torch"):
         raise ImportError("`torch` backend requires `torch` to be installed.")
     if not is_available("optree"):
@@ -83,6 +77,41 @@ elif backend == "torch":
 
     arraylib = TorchArray()
     treelib = OpTreeTreeLib()
+    return arraylib, treelib
+
+
+BackendLiteral = Literal["default", "jax", "torch", "numpy"]
+
+backend: BackendLiteral = os.environ.get("SEPES_BACKEND", "default").lower()
+
+backends_map: dict[BackendLiteral, Callable] = {}
+backends_map["default"] = default_backend
+backends_map["jax"] = jax_backend
+backends_map["torch"] = torch_backend
+backends_map["numpy"] = numpy_backend
+
+
+if backend == "default":
+    # backend promotion in essence is a search for the first available backend
+    # in the following order: jax, torch, numpy
+    # if no backend is available, then the default backend is used
+    for backend_name in ["jax", "torch", "numpy", "default"]:
+        if is_available(backend_name):
+            arraylib, treelib = backends_map[backend_name]()
+            logging.info(f"Successfully set backend to `{backend_name}`")
+            break
+
+elif backend == "jax":
+    arraylib, treelib = jax_backend()
+    logging.info("Successfully set backend to `jax`")
+
+elif backend == "numpy":
+    arraylib, treelib = numpy_backend()
+    logging.info("Successfully set backend to `numpy`")
+
+elif backend == "torch":
+    arraylib, treelib = torch_backend()
+    logging.info("Successfully set backend to `torch`")
 
 else:
     raise ValueError(f"Unknown backend: {backend!r}")

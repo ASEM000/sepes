@@ -589,3 +589,6 @@ def test_pluck():
     assert subtrees[0] == [3, 4]
     assert AtIndexer(tree)[0, 1].pluck(1) == [1]
     assert AtIndexer(tree)[0, 1].pluck(2) == [1, 2]
+
+    tree = dict(a=1, b=2)
+    assert AtIndexer(tree)[...].pluck() == [1, 2]

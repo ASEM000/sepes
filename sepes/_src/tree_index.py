@@ -908,6 +908,11 @@ class AtIndexer:
     ) -> list[Any]:
         """Extract subtrees at the specified location.
 
+        Note:
+            ``pluck`` first applies ``get`` to the specified location and then
+            extracts the immediate subtrees of the selected leaves. ``is_leaf``
+            and ``is_parallel`` are passed to ``get``.
+
         Args:
             count: number of subtrees to extract, Default to ``None`` to
                 extract all subtrees.
@@ -963,16 +968,23 @@ class AtIndexer:
         def aggregate_subtrees(node: Any) -> bool:
             nonlocal subtrees, count
             if count < 1:
+                # stop traversing the tree
+                # if total number of subtrees is reached
                 return True
+            if id(node) == id(tree):
+                # skip the root node
+                # for example if tree = dict(a=1) and mask is dict(a=True)
+                # then returns [1] and not [dict(a=1)]
+                return False
             leaves, _ = treelib.tree_flatten(node, is_leaf=lambda x: x is None)
             # in essence if the subtree does not contain any None leaves
             # then it is a valid subtree to be plucked
             # this because `get` sets the non-selected leaves to None
-            if all(leaf is not None for leaf in leaves):
-                subtrees += [node]
-                count -= 1
-                return True
-            return False
+            if any(leaf is None for leaf in leaves):
+                return False
+            subtrees += [node]
+            count -= 1
+            return True
 
         treelib.tree_flatten(tree, is_leaf=aggregate_subtrees)
         return subtrees

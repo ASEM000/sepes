@@ -962,7 +962,7 @@ class AtIndexer:
             # then it is a valid subtree to be plucked
             # this because `get` sets the non-selected leaves to None
             leaves, _ = treelib.tree_flatten(node, is_leaf=lambda x: x is None)
-            if not any(leaf is None for leaf in leaves):
+            if all(leaf is not None for leaf in leaves):
                 subtrees += [node]
                 return True
             return False

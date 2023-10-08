@@ -44,6 +44,7 @@ PyTree = Any
 EllipsisType = type(Ellipsis)
 ArgKindType = Literal["POS_ONLY", "POS_OR_KW", "VAR_POS", "KW_ONLY", "VAR_KW"]
 ArgKind = get_args(ArgKindType)
+EXCLUDED_FIELD_NAMES: set[str] = {"self", "__post_init__", "__annotations__"}
 
 
 @ft.singledispatch
@@ -398,7 +399,6 @@ def field(
 
 def build_field_map(klass: type) -> dict[str, Field]:
     field_map: dict[str, Field] = dict()
-    excluded = set(["self", "__post_init__", "__annotations__"])
 
     if klass is object:
         return dict(field_map)
@@ -409,8 +409,8 @@ def build_field_map(klass: type) -> dict[str, Field]:
     if (hint_map := vars(klass).get("__annotations__", NULL)) is NULL:
         return dict(field_map)
 
-    if excluded.intersection(hint_map):
-        raise ValueError(f"`Field` name cannot be in {excluded=}")
+    if EXCLUDED_FIELD_NAMES.intersection(hint_map):
+        raise ValueError(f"`Field` name cannot be in {EXCLUDED_FIELD_NAMES}")
 
     for key, hint in hint_map.items():
         # get the current base key

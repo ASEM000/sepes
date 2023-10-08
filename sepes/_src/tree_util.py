@@ -449,7 +449,7 @@ class Node:
         # this node as the parent of the child
         if not isinstance(child, Node):
             raise TypeError(f"`child` must be a `Node`, got {type(child)}")
-        ti, __ = child.data
+        ti, _ = child.data
         if ti not in self.children:
             # establish parent-child relationship
             child.parent = self

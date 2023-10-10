@@ -33,8 +33,9 @@ import functools as ft
 import re
 from typing import Any, Callable, Hashable, Tuple, TypeVar
 from typing_extensions import Self
-from sepes._src.backend import arraylib, treelib
+import sepes
 from sepes._src.backend.treelib.base import ParallelConfig
+from sepes._src.backend import arraylib
 
 T = TypeVar("T")
 S = TypeVar("S")
@@ -42,10 +43,6 @@ EllipsisType = TypeVar("EllipsisType")
 KeyEntry = TypeVar("KeyEntry", bound=Hashable)
 KeyPath = Tuple[KeyEntry, ...]
 _no_initializer = object()
-
-SequenceKeyType = type(treelib.sequence_key(0))
-DictKeyType = type(treelib.dict_key("key"))
-GetAttrKeyType = type(treelib.attribute_key("name"))
 
 
 class BaseKey(abc.ABC):
@@ -164,23 +161,19 @@ class BaseKey(abc.ABC):
     broadcastable: bool = False
 
 
-class IntKey(BaseKey):
+class IndexKey(BaseKey):
     """Match a leaf with a given index."""
 
     def __init__(self, idx: int) -> None:
         self.idx = idx
 
-    @ft.singledispatchmethod
-    def __eq__(self, _: KeyEntry) -> bool:
+    def __eq__(self, key: KeyEntry) -> bool:
+        if isinstance(key, int):
+            return self.idx == key
+        treelib = sepes._src.backend.treelib
+        if isinstance(key, type(treelib.sequence_key(0))):
+            return self.idx == key.idx
         return False
-
-    @__eq__.register(int)
-    def _(self, other: int) -> bool:
-        return self.idx == other
-
-    @__eq__.register(SequenceKeyType)
-    def _(self, other: SequenceKeyType) -> bool:
-        return self.idx == other.idx
 
     def __repr__(self) -> str:
         return f"{self.idx}"
@@ -192,21 +185,15 @@ class NameKey(BaseKey):
     def __init__(self, name: str) -> None:
         self.name = name
 
-    @ft.singledispatchmethod
-    def __eq__(self, _: KeyEntry) -> bool:
+    def __eq__(self, key: KeyEntry) -> bool:
+        if isinstance(key, str):
+            return self.name == key
+        treelib = sepes._src.backend.treelib
+        if isinstance(key, type(treelib.attribute_key(""))):
+            return self.name == key.name
+        if isinstance(key, type(treelib.dict_key(""))):
+            return self.name == key.key
         return False
-
-    @__eq__.register(str)
-    def _(self, other: str) -> bool:
-        return self.name == other
-
-    @__eq__.register(GetAttrKeyType)
-    def _(self, other: GetAttrKeyType) -> bool:
-        return self.name == other.name
-
-    @__eq__.register(DictKeyType)
-    def _(self, other: DictKeyType) -> bool:
-        return self.name == other.key
 
     def __repr__(self) -> str:
         return f"{self.name}"
@@ -263,21 +250,15 @@ class RegexKey(BaseKey):
     def __init__(self, pattern: str) -> None:
         self.pattern = pattern
 
-    @ft.singledispatchmethod
-    def __eq__(self, _: KeyEntry) -> bool:
+    def __eq__(self, key: KeyEntry) -> bool:
+        if isinstance(key, str):
+            return re.fullmatch(self.pattern, key) is not None
+        treelib = sepes._src.backend.treelib
+        if isinstance(key, type(treelib.attribute_key(""))):
+            return re.fullmatch(self.pattern, key.name) is not None
+        if isinstance(key, type(treelib.dict_key(""))):
+            return re.fullmatch(self.pattern, key.key) is not None
         return False
-
-    @__eq__.register(str)
-    def _(self, other: str) -> bool:
-        return re.fullmatch(self.pattern, other) is not None
-
-    @__eq__.register(GetAttrKeyType)
-    def _(self, other) -> bool:
-        return re.fullmatch(self.pattern, other.name) is not None
-
-    @__eq__.register(DictKeyType)
-    def _(self, other) -> bool:
-        return re.fullmatch(self.pattern, other.key) is not None
 
     def __repr__(self) -> str:
         return f"{self.pattern}"
@@ -289,7 +270,7 @@ class RegexKey(BaseKey):
 # matching as a mask or as an instance of `BaseKey`
 indexer_dispatcher = ft.singledispatch(lambda x: x)
 indexer_dispatcher.register(type(...), EllipsisKey)
-indexer_dispatcher.register(int, IntKey)
+indexer_dispatcher.register(int, IndexKey)
 indexer_dispatcher.register(str, NameKey)
 indexer_dispatcher.register(re.Pattern, RegexKey)
 
@@ -317,9 +298,6 @@ Check the following:
 """
 
 
-_, atomicdef = treelib.tree_flatten(0)
-
-
 def generate_path_mask(tree, where: tuple[BaseKey, ...], *, is_leaf=None):
     # given a pytree `tree` and a `where` path, that is composed of keys
     # generate a boolean mask that will be eventually used to with `tree_map`
@@ -327,6 +305,7 @@ def generate_path_mask(tree, where: tuple[BaseKey, ...], *, is_leaf=None):
     # for example for a tree = [[1, 2], 3, 4] and where = [0][1] then
     # generate [[False, True], False, False] mask
     match: bool = False
+    treelib = sepes._src.backend.treelib
 
     def one_level_tree_path_map(func, tree):
         # apply func to the immediate children of tree
@@ -409,6 +388,8 @@ def resolve_where(
     tree: T,
     is_leaf: Callable[[Any], None] | None = None,
 ):
+    treelib = sepes._src.backend.treelib
+
     def combine_bool_leaves(*leaves):
         # given a list of boolean leaves, combine them using `and`
         # this is used to combine multiple boolean masks resulting from
@@ -419,7 +400,7 @@ def resolve_where(
         return verdict
 
     def is_bool_leaf(leaf: Any) -> bool:
-        if isinstance(leaf, arraylib.ndarray):
+        if isinstance(leaf, arraylib.types):
             return arraylib.is_bool(leaf)
         return isinstance(leaf, bool)
 
@@ -567,7 +548,7 @@ class AtIndexer:
         return type(self)(self.tree, (*self.where, where))
 
     def __repr__(self) -> str:
-        return f"{type(self).__name__}(tree={self.tree}, where={self.where})"
+        return f"{type(self).__name__}(tree={self.tree!r}, where={self.where})"
 
     def get(
         self,
@@ -610,13 +591,14 @@ class AtIndexer:
             >>> tree.at['a'].get()
             Tree(a=1, b=None)
         """
+        treelib = sepes._src.backend.treelib
 
         def leaf_get(where: Any, leaf: Any):
             # support both array and non-array leaves
             # for array boolean mask we select **parts** of the array that
             # matches the mask, for example if the mask is Array([True, False, False])
             # and the leaf is Array([1, 2, 3]) then the result is Array([1])
-            if isinstance(where, arraylib.ndarray) and arraylib.ndim(where) != 0:
+            if isinstance(where, arraylib.types) and len(arraylib.shape(where)):
                 return leaf[where]
             # non-array boolean mask we select the leaf if the mask is True
             # and `None` otherwise
@@ -673,6 +655,7 @@ class AtIndexer:
             >>> tree.at['a'].set(100)
             Tree(a=100, b=2)
         """
+        treelib = sepes._src.backend.treelib
 
         def leaf_set(where: Any, leaf: Any, set_value: Any):
             # support both array and non-array leaves
@@ -680,7 +663,7 @@ class AtIndexer:
             # matches the mask, for example if the mask is Array([True, False, False])
             # and the leaf is Array([1, 2, 3]) then the result is Array([1, 100, 100])
             # with set_value = 100
-            if isinstance(where, arraylib.ndarray):
+            if isinstance(where, arraylib.types):
                 return arraylib.where(where, set_value, leaf)
             return set_value if where else leaf
 
@@ -761,12 +744,14 @@ class AtIndexer:
             >>> images = indexer[...].apply(imread, parallel=dict(max_workers=2))  # doctest: +SKIP
         """
 
+        treelib = sepes._src.backend.treelib
+
         def leaf_apply(where: Any, leaf: Any):
             # same as `leaf_set` but with `func` applied to the leaf
             # one thing to note is that, the where mask select an array
             # then the function needs work properly when applied to the selected
             # array elements
-            if isinstance(where, arraylib.ndarray):
+            if isinstance(where, arraylib.types):
                 return arraylib.where(where, func(leaf), leaf)
             return func(leaf) if where else leaf
 
@@ -837,7 +822,7 @@ class AtIndexer:
             them with final state. While ``reduce`` applies a binary ``func`` to the
             leaf values while carrying a state and returning a single value.
         """
-
+        treelib = sepes._src.backend.treelib
         running_state = state
 
         def stateless_func(leaf):
@@ -846,7 +831,7 @@ class AtIndexer:
             return leaf
 
         def leaf_apply(where: Any, leaf: Any):
-            if isinstance(where, arraylib.ndarray):
+            if isinstance(where, arraylib.types):
                 return arraylib.where(where, stateless_func(leaf), leaf)
             return stateless_func(leaf) if where else leaf
 
@@ -893,6 +878,7 @@ class AtIndexer:
             >>> tree.at[...].reduce(lambda a, b: a + b, initializer=0)
             3
         """
+        treelib = sepes._src.backend.treelib
         tree = self.get(is_leaf=is_leaf)  # type: ignore
         leaves, _ = treelib.tree_flatten(tree, is_leaf=is_leaf)
         if initializer is _no_initializer:
@@ -961,6 +947,7 @@ class AtIndexer:
 
             >>> [tree["a"], tree["b"][1]]
         """
+        treelib = sepes._src.backend.treelib
         tree = self.get(is_leaf=is_leaf, is_parallel=is_parallel)
         subtrees: list[Any] = []
         count = float("inf") if count is None else count

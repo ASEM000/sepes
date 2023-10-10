@@ -20,11 +20,10 @@ import functools as ft
 import operator as op
 from copy import copy
 from math import ceil, floor, trunc
-from typing import Any, Callable, Hashable, Iterator, Sequence, Tuple, TypeVar
+from typing import Any, Callable, Hashable, Iterator, Sequence, Tuple, TypeVar, Generic
 
 from typing_extensions import ParamSpec
-
-from sepes._src.backend import arraylib, treelib
+import sepes
 
 T = TypeVar("T")
 T1 = TypeVar("T1")
@@ -41,12 +40,14 @@ KeyTypePath = Tuple[KeyPath, TypePath]
 
 
 def tree_hash(*trees: PyTree) -> int:
+    treelib = sepes._src.backend.treelib
     leaves, treedef = treelib.tree_flatten(trees)
     return hash((*leaves, treedef))
 
 
 def tree_copy(tree: T) -> T:
     """Return a copy of the tree."""
+    treelib = sepes._src.backend.treelib
     return treelib.tree_map(lambda x: copy(x), tree)
 
 
@@ -54,27 +55,30 @@ def is_array_like(node) -> bool:
     return hasattr(node, "shape") and hasattr(node, "dtype")
 
 
-def _is_leaf_rhs_equal(leaf, rhs) -> bool | arraylib.ndarray:
+def _is_leaf_rhs_equal(leaf, rhs) -> bool:
+    arraylib = sepes._src.backend.arraylib
     if is_array_like(leaf):
         if is_array_like(rhs):
             if leaf.shape != rhs.shape:
                 return False
             if leaf.dtype != rhs.dtype:
                 return False
+            verdict = arraylib.all(leaf == rhs)
             try:
-                return bool(verdict := arraylib.all(leaf == rhs))
+                return bool(verdict)
             except Exception:
                 return verdict  # fail under `jit`
         return False
     return leaf == rhs
 
 
-def is_tree_equal(*trees: Any) -> bool | arraylib.ndarray:
+def is_tree_equal(*trees: Any) -> bool:
     """Return ``True`` if all pytrees are equal.
 
     Note:
         trees are compared using their leaves and treedefs.
     """
+    treelib = sepes._src.backend.treelib
     tree0, *rest = trees
     leaves0, treedef0 = treelib.tree_flatten(tree0)
     verdict = True
@@ -87,7 +91,16 @@ def is_tree_equal(*trees: Any) -> bool | arraylib.ndarray:
     return verdict
 
 
-class Partial:
+class Static(Generic[T]):
+    def __init_subclass__(klass, **k) -> None:
+        # register subclasses as an empty pytree node
+        super().__init_subclass__(**k)
+        # register with the proper backend
+        treelib = sepes._src.backend.treelib
+        treelib.register_static(klass)
+
+
+class Partial(Static):
     """``Partial`` function with support for positional partial application.
 
     Args:
@@ -119,7 +132,7 @@ class Partial:
         - https://stackoverflow.com/a/7811270
     """
 
-    __slots__ = ["func", "args", "kwargs", "__weakref__"]  # type: ignore
+    __slots__ = ["func", "args", "kwargs"]  # type: ignore
 
     def __init__(self, func: Callable[..., Any], *args: Any, **kwargs: Any):
         self.func = func
@@ -139,9 +152,6 @@ class Partial:
 
     def __eq__(self, other: Any) -> bool:
         return is_tree_equal(self, other)
-
-
-treelib.register_static(Partial)
 
 
 def bcmap(
@@ -195,10 +205,11 @@ def bcmap(
         >>> sp.bcmap(jnp.add)([1, 2, 3], [1, 2, 3]) # doctest: +SKIP
         [2, 4, 6]
     """
+    treelib = sepes._src.backend.treelib
 
     @ft.wraps(func)
     def wrapper(*args, **kwargs):
-        if len(args) > 0:
+        if len(args):
             # positional arguments are passed the argument to be compare
             # the tree structure with is the first argument
             leaves0, treedef0 = treelib.tree_flatten(args[0], is_leaf=is_leaf)
@@ -252,22 +263,6 @@ def bcmap(
     docs = f"Broadcasted version of {name}\n{func.__doc__}"
     wrapper.__doc__ = docs
     return wrapper
-
-
-def uop(func):
-    def wrapper(self):
-        return treelib.tree_map(func, self)
-
-    return ft.wraps(func)(wrapper)
-
-
-def bop(func):
-    def wrapper(leaf, rhs=None):
-        if isinstance(rhs, type(leaf)):
-            return treelib.tree_map(func, leaf, rhs)
-        return treelib.tree_map(lambda x: func(x, rhs), leaf)
-
-    return ft.wraps(func)(wrapper)
 
 
 def swop(func):
@@ -343,6 +338,22 @@ def leafwise(klass: type[T]) -> type[T]:
     ``__xor__``              ``^``
     ==================      ============
     """
+    treelib = sepes._src.backend.treelib
+
+    def uop(func):
+        def wrapper(self):
+            return treelib.tree_map(func, self)
+
+        return ft.wraps(func)(wrapper)
+
+    def bop(func):
+        def wrapper(leaf, rhs=None):
+            if isinstance(rhs, type(leaf)):
+                return treelib.tree_map(func, leaf, rhs)
+            return treelib.tree_map(lambda x: func(x, rhs), leaf)
+
+        return ft.wraps(func)(wrapper)
+
     for key, method in (
         ("__abs__", uop(abs)),
         ("__add__", bop(op.add)),
@@ -394,15 +405,15 @@ def leafwise(klass: type[T]) -> type[T]:
     return klass
 
 
-_, atomicdef = treelib.tree_flatten(1)
-
-
 def tree_typed_path_leaves(
     tree: PyTree,
     *,
     is_leaf: Callable[[Any], bool] | None = None,
     is_path_leaf: Callable[[KeyTypePath], bool] | None = None,
 ) -> Sequence[tuple[KeyTypePath, Any]]:
+    treelib = sepes._src.backend.treelib
+    _, atomicdef = treelib.tree_flatten(1)
+
     # mainly used for visualization
     def flatten_one_level(typedpath: KeyTypePath, tree: PyTree):
         # predicate and type path

@@ -19,100 +19,78 @@ import os
 from importlib.util import find_spec
 from typing import Literal, Callable
 import logging
+from contextlib import contextmanager
+from sepes._src.backend.arraylib.base import ArrayLib
+
+arraylib = ArrayLib()
 
 
 @ft.lru_cache(maxsize=None)
-def is_available(backend: str) -> bool:
+def is_backend_available(backend: str) -> bool:
     return find_spec(backend) is not None
 
 
-def default_backend():
-    # no backend is available
-    if not is_available("optree"):
-        raise ImportError("No backend is available. Please install `optree`.")
+# by importing the backend modules here, we register the backend implementations
+# with the arraylib
+if is_backend_available("torch"):
+    import sepes._src.backend.arraylib.torch
+if is_backend_available("jax"):
+    import sepes._src.backend.arraylib.jax
+if is_backend_available("numpy"):
+    import sepes._src.backend.arraylib.numpy
 
-    from sepes._src.backend.arraylib.noarray import NoArray
+
+def optree_backend():
+    # no backend is available
+    if not is_backend_available("optree"):
+        raise ImportError("No backend is available. Please install `optree`.")
     from sepes._src.backend.treelib.optree import OpTreeTreeLib
 
-    arraylib = NoArray()
-    treelib = OpTreeTreeLib()
-    return arraylib, treelib
+    return OpTreeTreeLib()
 
 
 def jax_backend():
-    if not is_available("jax"):
+    if not is_backend_available("jax"):
         raise ImportError("`jax` backend requires `jax` to be installed.")
-
-    from sepes._src.backend.arraylib.jax import JaxArray
     from sepes._src.backend.treelib.jax import JaxTreeLib
 
-    arraylib = JaxArray()
-    treelib = JaxTreeLib()
-    return arraylib, treelib
+    return JaxTreeLib()
 
 
-def numpy_backend():
-    if not is_available("optree"):
-        raise ImportError("`numpy` backend requires `optree` to be installed.")
-
-    if not is_available("numpy"):
-        raise ImportError("`numpy` backend requires `numpy` to be installed.")
-
-    from sepes._src.backend.arraylib.numpy import NumpyArray
-    from sepes._src.backend.treelib.optree import OpTreeTreeLib
-
-    arraylib = NumpyArray()
-    treelib = OpTreeTreeLib()
-    return arraylib, treelib
-
-
-def torch_backend():
-    if not is_available("torch"):
-        raise ImportError("`torch` backend requires `torch` to be installed.")
-    if not is_available("optree"):
-        raise ImportError("`torch` backend requires `optree` to be installed.")
-
-    from sepes._src.backend.arraylib.torch import TorchArray
-    from sepes._src.backend.treelib.optree import OpTreeTreeLib
-
-    arraylib = TorchArray()
-    treelib = OpTreeTreeLib()
-    return arraylib, treelib
-
-
-BackendLiteral = Literal["default", "jax", "torch", "numpy"]
-
+BackendLiteral = Literal["optree", "jax"]  # tree backend
 backend: BackendLiteral = os.environ.get("SEPES_BACKEND", "default").lower()
-
 backends_map: dict[BackendLiteral, Callable] = {}
-backends_map["default"] = default_backend
 backends_map["jax"] = jax_backend
-backends_map["torch"] = torch_backend
-backends_map["numpy"] = numpy_backend
-
+backends_map["torch"] = backends_map["numpy"] = optree_backend
 
 if backend == "default":
     # backend promotion in essence is a search for the first available backend
     # in the following order: jax, torch, numpy
     # if no backend is available, then the default backend is used
-    for backend_name in ["jax", "torch", "numpy", "default"]:
-        if is_available(backend_name):
-            arraylib, treelib = backends_map[backend_name]()
+    for backend_name in backends_map:
+        if is_backend_available(backend_name):
+            treelib = backends_map[backend_name]()
             backend = backend_name
             logging.info(f"Successfully set backend to `{backend_name}`")
             break
-
 elif backend == "jax":
-    arraylib, treelib = jax_backend()
+    treelib = jax_backend()
     logging.info("Successfully set backend to `jax`")
-
-elif backend == "numpy":
-    arraylib, treelib = numpy_backend()
-    logging.info("Successfully set backend to `numpy`")
-
-elif backend == "torch":
-    arraylib, treelib = torch_backend()
-    logging.info("Successfully set backend to `torch`")
-
+elif backend in ["torch", "numpy", "default"]:
+    treelib = optree_backend()
+    logging.info(f"Successfully set backend to `{backend}`")
 else:
     raise ValueError(f"Unknown backend: {backend!r}")
+
+
+@contextmanager
+def backend_context(backend_name: BackendLiteral):
+    global treelib
+    old_treelib = treelib
+    old_backend = backend
+    try:
+        treelib = backends_map[backend_name]()
+        yield
+    finally:
+        treelib = old_treelib
+        backend = old_backend

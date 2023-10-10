@@ -35,7 +35,7 @@ import functools as ft
 import sys
 from collections import defaultdict
 from collections.abc import Callable, MutableMapping, MutableSequence, MutableSet
-from typing import Any, Literal, Mapping, Sequence, TypeVar, Union, get_args
+from typing import Any, Literal, Mapping, Sequence, TypeVar, get_args
 
 from typing_extensions import dataclass_transform
 

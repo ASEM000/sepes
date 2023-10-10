@@ -15,94 +15,37 @@
 """Backend tools for sepes."""
 
 from __future__ import annotations
+import functools as ft
 
-import abc
+tobytes = ft.singledispatch(lambda array: ...)
+where = ft.singledispatch(lambda condition, x, y: ...)
+nbytes = ft.singledispatch(lambda array: ...)
+shape = ft.singledispatch(lambda array: ...)
+dtype = ft.singledispatch(lambda array: ...)
+min = ft.singledispatch(lambda array: ...)
+max = ft.singledispatch(lambda array: ...)
+mean = ft.singledispatch(lambda array: ...)
+std = ft.singledispatch(lambda array: ...)
+all = ft.singledispatch(lambda array: ...)
+is_floating = ft.singledispatch(lambda array: ...)
+is_integer = ft.singledispatch(lambda array: ...)
+is_inexact = ft.singledispatch(lambda array: ...)
+is_bool = ft.singledispatch(lambda array: ...)
 
 
-class AbstractArray(abc.ABC):
-    """The minimal array operations used by sepes."""
-
-    @staticmethod
-    @abc.abstractmethod
-    def tobytes(array):
-        ...
-
-    @property
-    @abc.abstractmethod
-    def ndarray(self):
-        ...
-
-    @staticmethod
-    @abc.abstractmethod
-    def where(condition, x, y):
-        ...
-
-    @staticmethod
-    @abc.abstractmethod
-    def nbytes(array):
-        ...
-
-    @staticmethod
-    @abc.abstractmethod
-    def size(array):
-        ...
-
-    @staticmethod
-    @abc.abstractmethod
-    def ndim(array):
-        ...
-
-    @staticmethod
-    @abc.abstractmethod
-    def shape(array):
-        ...
-
-    @staticmethod
-    @abc.abstractmethod
-    def dtype(array):
-        ...
-
-    @staticmethod
-    @abc.abstractmethod
-    def min(array):
-        ...
-
-    @staticmethod
-    @abc.abstractmethod
-    def max(array):
-        ...
-
-    @staticmethod
-    @abc.abstractmethod
-    def mean(array):
-        ...
-
-    @staticmethod
-    @abc.abstractmethod
-    def std(array):
-        ...
-
-    @staticmethod
-    @abc.abstractmethod
-    def all(array):
-        ...
-
-    @staticmethod
-    @abc.abstractmethod
-    def is_floating(array):
-        ...
-
-    @staticmethod
-    @abc.abstractmethod
-    def is_integer(array):
-        ...
-
-    @staticmethod
-    @abc.abstractmethod
-    def is_inexact(array):
-        ...
-
-    @staticmethod
-    @abc.abstractmethod
-    def is_bool(array):
-        ...
+class ArrayLib:
+    tobytes = staticmethod(tobytes)
+    where = staticmethod(where)
+    nbytes = staticmethod(nbytes)
+    shape = staticmethod(shape)
+    dtype = staticmethod(dtype)
+    min = staticmethod(min)
+    max = staticmethod(max)
+    mean = staticmethod(mean)
+    std = staticmethod(std)
+    all = staticmethod(all)
+    is_floating = staticmethod(is_floating)
+    is_integer = staticmethod(is_integer)
+    is_inexact = staticmethod(is_inexact)
+    is_bool = staticmethod(is_bool)
+    types: tuple[type, ...] = ()

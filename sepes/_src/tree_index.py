@@ -400,7 +400,7 @@ def resolve_where(
         return verdict
 
     def is_bool_leaf(leaf: Any) -> bool:
-        if isinstance(leaf, arraylib.types):
+        if isinstance(leaf, arraylib.ndarrays):
             return arraylib.is_bool(leaf)
         return isinstance(leaf, bool)
 
@@ -598,7 +598,7 @@ class AtIndexer:
             # for array boolean mask we select **parts** of the array that
             # matches the mask, for example if the mask is Array([True, False, False])
             # and the leaf is Array([1, 2, 3]) then the result is Array([1])
-            if isinstance(where, arraylib.types) and len(arraylib.shape(where)):
+            if isinstance(where, arraylib.ndarrays) and len(arraylib.shape(where)):
                 return leaf[where]
             # non-array boolean mask we select the leaf if the mask is True
             # and `None` otherwise
@@ -663,7 +663,7 @@ class AtIndexer:
             # matches the mask, for example if the mask is Array([True, False, False])
             # and the leaf is Array([1, 2, 3]) then the result is Array([1, 100, 100])
             # with set_value = 100
-            if isinstance(where, arraylib.types):
+            if isinstance(where, arraylib.ndarrays):
                 return arraylib.where(where, set_value, leaf)
             return set_value if where else leaf
 
@@ -751,7 +751,7 @@ class AtIndexer:
             # one thing to note is that, the where mask select an array
             # then the function needs work properly when applied to the selected
             # array elements
-            if isinstance(where, arraylib.types):
+            if isinstance(where, arraylib.ndarrays):
                 return arraylib.where(where, func(leaf), leaf)
             return func(leaf) if where else leaf
 
@@ -831,7 +831,7 @@ class AtIndexer:
             return leaf
 
         def leaf_apply(where: Any, leaf: Any):
-            if isinstance(where, arraylib.types):
+            if isinstance(where, arraylib.ndarrays):
                 return arraylib.where(where, stateless_func(leaf), leaf)
             return stateless_func(leaf) if where else leaf
 

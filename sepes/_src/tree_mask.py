@@ -164,7 +164,7 @@ freeze.type_dispatcher = ft.singledispatch(_FrozenHashable)
 freeze.def_type = freeze.type_dispatcher.register
 
 
-for ndarray in arraylib.types:
+for ndarray in arraylib.ndarrays:
 
     @freeze.def_type(ndarray)
     def freeze_array(value: T) -> _FrozenArray[T]:
@@ -254,7 +254,7 @@ is_nondiff.type_dispatcher = ft.singledispatch(lambda x: True)
 is_nondiff.def_type = is_nondiff.type_dispatcher.register
 
 
-for ndarray in arraylib.types:
+for ndarray in arraylib.ndarrays:
 
     @is_nondiff.def_type(ndarray)
     def is_nondiff_array(value) -> bool:

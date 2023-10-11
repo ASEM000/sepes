@@ -85,7 +85,7 @@ else:
 
 @contextmanager
 def backend_context(backend_name: BackendLiteral):
-    """Context manager for switching the tree backend temporarily.
+    """Context manager for switching the tree backend within a context.
 
     Args:
         backend_name: The name of the backend to switch to. available backends are
@@ -105,7 +105,7 @@ def backend_context(backend_name: BackendLiteral):
         >>> optree.tree_flatten(tree, namespace="sepes")
         [1, 2]
     """
-    global treelib
+    global treelib, backend
     old_treelib = treelib
     old_backend = backend
     try:

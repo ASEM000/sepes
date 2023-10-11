@@ -33,4 +33,4 @@ ArrayLib.is_floating.register(Array, lambda x: jnp.issubdtype(x.dtype, jnp.float
 ArrayLib.is_integer.register(Array, lambda x: jnp.issubdtype(x.dtype, jnp.integer))
 ArrayLib.is_inexact.register(Array, lambda x: jnp.issubdtype(x.dtype, jnp.inexact))
 ArrayLib.is_bool.register(Array, lambda x: jnp.issubdtype(x.dtype, jnp.bool_))
-ArrayLib.types += (Array,)
+ArrayLib.ndarrays += (Array,)

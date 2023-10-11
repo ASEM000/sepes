@@ -32,4 +32,4 @@ ArrayLib.is_floating.register(ndarray, lambda x: np.issubdtype(x.dtype, np.float
 ArrayLib.is_integer.register(ndarray, lambda x: np.issubdtype(x.dtype, np.integer))
 ArrayLib.is_inexact.register(ndarray, lambda x: np.issubdtype(x.dtype, np.inexact))
 ArrayLib.is_bool.register(ndarray, lambda x: np.issubdtype(x.dtype, np.bool_))
-ArrayLib.types += (ndarray,)
+ArrayLib.ndarrays += (ndarray,)

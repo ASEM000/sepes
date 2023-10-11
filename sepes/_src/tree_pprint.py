@@ -220,7 +220,7 @@ def _(func: Callable, **spec: Unpack[PPSpec]) -> str:
     return text
 
 
-for ndarray in arraylib.types:
+for ndarray in arraylib.ndarrays:
 
     @tree_repr.def_type(ndarray)
     def array_pp(node, **spec: Unpack[PPSpec]) -> str:
@@ -672,7 +672,7 @@ tree_summary.type_dispatcher = ft.singledispatch(lambda x: type(x).__name__)
 tree_summary.def_type = tree_summary.type_dispatcher.register
 
 
-for ndarray in arraylib.types:
+for ndarray in arraylib.ndarrays:
 
     @tree_summary.def_size(ndarray)
     def _(node) -> int:

@@ -48,4 +48,4 @@ class ArrayLib:
     is_integer = staticmethod(is_integer)
     is_inexact = staticmethod(is_inexact)
     is_bool = staticmethod(is_bool)
-    types: tuple[type, ...] = ()
+    ndarrays: tuple[type, ...] = ()

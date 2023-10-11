@@ -117,6 +117,49 @@
   assert tree.lookup["a"] is tree.shared
   ```
 
+- Revamp the backend mechanism:
+
+  - Rewrite array backend via dispatch to work with `numpy`,`jax`, and `torch` simultaneously. for example the following recognize both `jax` and `torch` entries without backend changes.
+
+  ```python
+  import sepes as sp
+  import jax.numpy as jnp
+  import torch
+  tree = [[1, 2], 2, [3, 4], jnp.ones((2, 2)), torch.ones((2, 2))]
+  print(sp.tree_repr(tree))
+  # [
+  #   [1, 2],
+  #   2,
+  #   [3, 4],
+  #   f32[2,2](μ=1.00, σ=0.00, ∈[1.00,1.00]),
+  #   torch.f32[2,2](μ=1.00, σ=0.00, ∈[1.00,1.00])
+  # ]
+  ```
+
+  - Introduce `backend_context` to switch between `jax`/`optree` backend registration and tree utilities. the following example shows how to register with different backends:
+
+  ```python
+  import sepes
+  import jax
+  import optree
+
+  with sepes.backend_context("jax"):
+      class JaxTree(sepes.TreeClass):
+          def __init__(self):
+              self.l1 = 1.0
+              self.l2 = 2.0
+      print(jax.tree_util.tree_leaves(JaxTree()))
+
+  with sepes.backend_context("optree"):
+      class OpTreeTree(sepes.TreeClass):
+          def __init__(self):
+              self.l1 = 1.0
+              self.l2 = 2.0
+      print(optree.tree_leaves(OpTreeTree(), namespace="sepes"))
+  # [1.0, 2.0]
+  # [1.0, 2.0]
+  ```
+
 ## v0.10.0
 
 - successor of the `jax`-specific `pytreeclass`

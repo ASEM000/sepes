@@ -24,16 +24,19 @@ from sepes._src.code_build import autoinit
 from sepes._src.tree_base import TreeClass, add_mutable_entry, discard_mutable_entry
 from sepes._src.tree_index import AtIndexer, BaseKey
 from sepes._src.tree_util import is_tree_equal, leafwise
+import os
 
-if backend == "jax":
+test_arraylib = os.environ.get("SEPES_TEST_ARRAYLIB", "numpy")
+
+if test_arraylib == "jax":
     import jax.numpy as arraylib
 
     default_int = arraylib.int32
-elif backend in ["numpy", "default"]:
+elif test_arraylib in ["numpy", "default"]:
     import numpy as arraylib
 
     default_int = arraylib.int64
-elif backend == "torch":
+elif test_arraylib == "torch":
     import torch as arraylib
 
     arraylib.array = arraylib.tensor

@@ -27,6 +27,7 @@ jobs:
           python -m pip install pytest pytest-benchmark wheel coverage
       - name: Pytest Check
         run: |
+          export SEPES_TEST_ARRAYLIB=jax
           export SEPES_BACKEND=jax
           python -m pip install .
           coverage run -m pytest tests

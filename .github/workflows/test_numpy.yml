@@ -29,7 +29,8 @@ jobs:
           python -m pip install pytest pytest-benchmark wheel coverage
       - name: Pytest Check
         run: |
-          export SEPES_BACKEND=numpy
+          export SEPES_TEST_ARRAYLIB=numpy
+          export SEPES_BACKEND=optree
           python -m pip install .
 
           coverage run -m pytest tests

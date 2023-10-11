@@ -19,7 +19,7 @@ from typing import Any
 
 import numpy.testing as npt
 import pytest
-
+import os
 from sepes._src.backend import backend, treelib
 from sepes._src.code_build import (
     autoinit,
@@ -32,11 +32,12 @@ from sepes._src.tree_base import TreeClass
 from sepes._src.tree_mask import freeze
 from sepes._src.tree_util import Partial, is_tree_equal
 
-if backend == "jax":
+test_arraylib = os.environ.get("SEPES_TEST_ARRAYLIB", "numpy")
+if test_arraylib == "jax":
     import jax.numpy as arraylib
-elif backend in ["numpy", "default"]:
+elif test_arraylib in ["numpy", "default"]:
     import numpy as arraylib
-elif backend == "torch":
+elif test_arraylib == "torch":
     import torch as arraylib
 
     arraylib.array = arraylib.tensor

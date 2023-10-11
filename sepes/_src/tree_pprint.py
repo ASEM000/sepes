@@ -34,7 +34,7 @@ from sepes._src.tree_util import (
     tree_typed_path_leaves,
 )
 from math import prod
-from sepes._src.backend import is_backend_available, arraylib
+from sepes._src.backend import is_package_avaiable, arraylib
 
 
 class PPSpec(TypedDict):
@@ -708,7 +708,7 @@ def tree_count(tree: PyTree) -> int:
     return ft.reduce(reduce_func, leaves, 0)
 
 
-if is_backend_available("jax"):
+if is_package_avaiable("jax"):
     # jax pretty printing extra handlers
     import jax
 

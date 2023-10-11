@@ -28,7 +28,7 @@
   ```python
   import sepes as sp
   tree = [1, 2, [3, 4]]
-  tree_= sp.AtIndexer(tree)[0].set(10)
+  tree_= sp.AtIndexer(tree)[2].set(10)
   assert tree_ == [1, 2, 10]
   ```
 
@@ -37,7 +37,7 @@
   ```python
   import sepes as sp
   tree = [1, 2, [3, 4]]
-  tree_= sp.AtIndexer(tree)[0][...].set(10)
+  tree_= sp.AtIndexer(tree)[2][...].set(10)
   assert tree_ == [1, 2, [10, 10]]
   ```
 

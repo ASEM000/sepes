@@ -35,7 +35,7 @@ import functools as ft
 import sys
 from collections import defaultdict
 from collections.abc import Callable, MutableMapping, MutableSequence, MutableSet
-from typing import Any, Literal, Mapping, Sequence, TypeVar, get_args
+from typing import Any, Literal, Sequence, TypeVar, get_args
 
 from typing_extensions import dataclass_transform
 
@@ -533,13 +533,21 @@ def build_init_method(klass: type[T]) -> type[T]:
 def autoinit(klass: type[T]) -> type[T]:
     """A class decorator that generates the ``__init__`` method from type hints.
 
-    Similar to ``dataclasses.dataclass``, this decorator generates the ``__init__``
-    method for the given class from the type hints or the :func:`field` objects
-    set to the class attributes.
+    Using the ``autoinit`` decorator, the user can define the class attributes
+    using type hints and the ``__init__`` method will be generated automatically
 
-    Compared to ``dataclasses.dataclass``, ``autoinit`` with :func:`field` objects
-    can be used to apply functions on the field values during initialization,
-    and/or support multiple argument kinds.
+    >>> import sepes as sp
+    >>> @sp.autoinit
+    ... class Tree:
+    ...     x: int
+    ...     y: int
+
+    Is equivalent to:
+
+    >>> class Tree:
+    ...     def __init__(self, x: int, y: int):
+    ...         self.x = x
+    ...         self.y = y
 
     Example:
         >>> import sepes as sp

@@ -12,7 +12,7 @@ Nested tree tools in python
 ![Tests](https://github.com/ASEM000/sepes/actions/workflows/test_jax.yml/badge.svg)
 ![Tests](https://github.com/ASEM000/sepes/actions/workflows/test_numpy.yml/badge.svg)
 ![Tests](https://github.com/ASEM000/sepes/actions/workflows/test_torch.yml/badge.svg)
-![pyver](https://img.shields.io/badge/python-3.8%203.9%203.10%203.11_-blue)
+![pyver](https://img.shields.io/badge/python-3.8%203.9%203.10%203.11%203.12_-blue)
 ![codestyle](https://img.shields.io/badge/codestyle-black-black)
 [![Downloads](https://static.pepy.tech/badge/sepes)](https://pepy.tech/project/sepes)
 [![codecov](https://codecov.io/gh/ASEM000/sepes/branch/main/graph/badge.svg?token=TZBRMO0UQH)](https://codecov.io/gh/ASEM000/sepes)

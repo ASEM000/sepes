@@ -16,20 +16,20 @@ from __future__ import annotations
 
 import numpy as np
 from numpy import ndarray
-from sepes._src.backend.arraylib.base import ArrayLib
+import sepes._src.backend.arraylib as arraylib
 
-ArrayLib.tobytes.register(ndarray, lambda x: np.array(x).tobytes())
-ArrayLib.where.register(ndarray, np.where)
-ArrayLib.nbytes.register(ndarray, lambda x: x.nbytes)
-ArrayLib.shape.register(ndarray, np.shape)
-ArrayLib.dtype.register(ndarray, lambda x: x.dtype)
-ArrayLib.min.register(ndarray, np.min)
-ArrayLib.max.register(ndarray, np.max)
-ArrayLib.mean.register(ndarray, np.mean)
-ArrayLib.std.register(ndarray, np.std)
-ArrayLib.all.register(ndarray, np.all)
-ArrayLib.is_floating.register(ndarray, lambda x: np.issubdtype(x.dtype, np.floating))
-ArrayLib.is_integer.register(ndarray, lambda x: np.issubdtype(x.dtype, np.integer))
-ArrayLib.is_inexact.register(ndarray, lambda x: np.issubdtype(x.dtype, np.inexact))
-ArrayLib.is_bool.register(ndarray, lambda x: np.issubdtype(x.dtype, np.bool_))
-ArrayLib.ndarrays += (ndarray,)
+arraylib.tobytes.register(ndarray, lambda x: np.array(x).tobytes())
+arraylib.where.register(ndarray, np.where)
+arraylib.nbytes.register(ndarray, lambda x: x.nbytes)
+arraylib.shape.register(ndarray, np.shape)
+arraylib.dtype.register(ndarray, lambda x: x.dtype)
+arraylib.min.register(ndarray, np.min)
+arraylib.max.register(ndarray, np.max)
+arraylib.mean.register(ndarray, np.mean)
+arraylib.std.register(ndarray, np.std)
+arraylib.all.register(ndarray, np.all)
+arraylib.is_floating.register(ndarray, lambda x: np.issubdtype(x.dtype, np.floating))
+arraylib.is_integer.register(ndarray, lambda x: np.issubdtype(x.dtype, np.integer))
+arraylib.is_inexact.register(ndarray, lambda x: np.issubdtype(x.dtype, np.inexact))
+arraylib.is_bool.register(ndarray, lambda x: np.issubdtype(x.dtype, np.bool_))
+arraylib.ndarrays += (ndarray,)

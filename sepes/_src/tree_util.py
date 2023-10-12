@@ -21,7 +21,7 @@ import operator as op
 from copy import copy
 from math import ceil, floor, trunc
 from typing import Any, Callable, Hashable, Iterator, Sequence, Tuple, TypeVar, Generic
-
+import sepes._src.backend.arraylib as arraylib
 from typing_extensions import ParamSpec
 import sepes
 
@@ -56,7 +56,6 @@ def is_array_like(node) -> bool:
 
 
 def _is_leaf_rhs_equal(leaf, rhs) -> bool:
-    arraylib = sepes._src.backend.arraylib
     if is_array_like(leaf):
         if is_array_like(rhs):
             if leaf.shape != rhs.shape:

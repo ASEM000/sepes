@@ -34,7 +34,8 @@ from sepes._src.tree_util import (
     tree_typed_path_leaves,
 )
 from math import prod
-from sepes._src.backend import is_package_avaiable, arraylib
+from sepes._src.backend import is_package_avaiable
+import sepes._src.backend.arraylib as arraylib
 
 
 class PPSpec(TypedDict):

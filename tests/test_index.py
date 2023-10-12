@@ -19,7 +19,8 @@ from typing import NamedTuple
 
 import pytest
 
-from sepes._src.backend import arraylib, backend, treelib
+from sepes._src.backend import backend, treelib
+from sepes._src.backend import arraylib
 from sepes._src.code_build import autoinit
 from sepes._src.tree_base import TreeClass, add_mutable_entry, discard_mutable_entry
 from sepes._src.tree_index import AtIndexer, BaseKey

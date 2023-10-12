@@ -17,20 +17,20 @@ from __future__ import annotations
 
 from jax import Array
 import jax.numpy as jnp
-from sepes._src.backend.arraylib.base import ArrayLib
+import sepes._src.backend.arraylib as arraylib
 
-ArrayLib.tobytes.register(Array, lambda x: jnp.array(x).tobytes())
-ArrayLib.where.register(Array, jnp.where)
-ArrayLib.nbytes.register(Array, lambda x: x.nbytes)
-ArrayLib.shape.register(Array, jnp.shape)
-ArrayLib.dtype.register(Array, lambda x: x.dtype)
-ArrayLib.min.register(Array, jnp.min)
-ArrayLib.max.register(Array, jnp.max)
-ArrayLib.mean.register(Array, jnp.mean)
-ArrayLib.std.register(Array, jnp.std)
-ArrayLib.all.register(Array, jnp.all)
-ArrayLib.is_floating.register(Array, lambda x: jnp.issubdtype(x.dtype, jnp.floating))
-ArrayLib.is_integer.register(Array, lambda x: jnp.issubdtype(x.dtype, jnp.integer))
-ArrayLib.is_inexact.register(Array, lambda x: jnp.issubdtype(x.dtype, jnp.inexact))
-ArrayLib.is_bool.register(Array, lambda x: jnp.issubdtype(x.dtype, jnp.bool_))
-ArrayLib.ndarrays += (Array,)
+arraylib.tobytes.register(Array, lambda x: jnp.array(x).tobytes())
+arraylib.where.register(Array, jnp.where)
+arraylib.nbytes.register(Array, lambda x: x.nbytes)
+arraylib.shape.register(Array, jnp.shape)
+arraylib.dtype.register(Array, lambda x: x.dtype)
+arraylib.min.register(Array, jnp.min)
+arraylib.max.register(Array, jnp.max)
+arraylib.mean.register(Array, jnp.mean)
+arraylib.std.register(Array, jnp.std)
+arraylib.all.register(Array, jnp.all)
+arraylib.is_floating.register(Array, lambda x: jnp.issubdtype(x.dtype, jnp.floating))
+arraylib.is_integer.register(Array, lambda x: jnp.issubdtype(x.dtype, jnp.integer))
+arraylib.is_inexact.register(Array, lambda x: jnp.issubdtype(x.dtype, jnp.inexact))
+arraylib.is_bool.register(Array, lambda x: jnp.issubdtype(x.dtype, jnp.bool_))
+arraylib.ndarrays += (Array,)

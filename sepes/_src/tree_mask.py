@@ -22,7 +22,7 @@ from typing import Any, Callable, NamedTuple, TypeVar, Union
 import sepes
 from sepes._src.tree_pprint import tree_repr, tree_str, tree_summary
 from sepes._src.tree_util import is_tree_equal, tree_copy, tree_hash, Static
-from sepes._src.backend import arraylib
+import sepes._src.backend.arraylib as arraylib
 
 T = TypeVar("T")
 MaskType = Union[T, Callable[[Any], bool]]

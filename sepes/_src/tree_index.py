@@ -34,8 +34,8 @@ import re
 from typing import Any, Callable, Hashable, Tuple, TypeVar
 from typing_extensions import Self
 import sepes
-from sepes._src.backend.treelib.base import ParallelConfig
-from sepes._src.backend import arraylib
+from sepes._src.backend.treelib import ParallelConfig
+import sepes._src.backend.arraylib as arraylib
 
 T = TypeVar("T")
 S = TypeVar("S")
@@ -530,7 +530,7 @@ class AtIndexer:
         ...    def at(self):
         ...        return sp.AtIndexer(self)
         ...    def __repr__(self) -> str:
-        ...        return f"{self.__class__.__name__}(a={self.a}, b={self.b})"
+        ...        return f"{type(self).__name__}(a={self.a}, b={self.b})"
         >>> Tree(1, 2).at["a"].get()
         Tree(a=1, b=None)
     """

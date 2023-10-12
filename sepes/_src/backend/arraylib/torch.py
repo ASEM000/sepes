@@ -17,24 +17,24 @@ from __future__ import annotations
 import numpy as np
 import torch
 from torch import Tensor
-from sepes._src.backend.arraylib.base import ArrayLib
+import sepes._src.backend.arraylib as arraylib
 
 floatings = [torch.float16, torch.float32, torch.float64]
 complexes = [torch.complex32, torch.complex64, torch.complex128]
 integers = [torch.int8, torch.int16, torch.int32, torch.int64]
 
-ArrayLib.tobytes.register(Tensor, lambda x: np.from_dlpack(x).tobytes())
-ArrayLib.where.register(Tensor, torch.where)
-ArrayLib.nbytes.register(Tensor, lambda x: x.nbytes)
-ArrayLib.shape.register(Tensor, lambda x: tuple(x.shape))
-ArrayLib.dtype.register(Tensor, lambda x: x.dtype)
-ArrayLib.min.register(Tensor, torch.min)
-ArrayLib.max.register(Tensor, torch.max)
-ArrayLib.mean.register(Tensor, torch.mean)
-ArrayLib.std.register(Tensor, torch.std)
-ArrayLib.all.register(Tensor, torch.all)
-ArrayLib.is_floating.register(Tensor, lambda x: x.dtype in floatings)
-ArrayLib.is_integer.register(Tensor, lambda x: x.dtype in integers)
-ArrayLib.is_inexact.register(Tensor, lambda x: x.dtype in floatings + complexes)
-ArrayLib.is_bool.register(Tensor, lambda x: x.dtype == torch.bool)
-ArrayLib.ndarrays += (Tensor,)
+arraylib.tobytes.register(Tensor, lambda x: np.from_dlpack(x).tobytes())
+arraylib.where.register(Tensor, torch.where)
+arraylib.nbytes.register(Tensor, lambda x: x.nbytes)
+arraylib.shape.register(Tensor, lambda x: tuple(x.shape))
+arraylib.dtype.register(Tensor, lambda x: x.dtype)
+arraylib.min.register(Tensor, torch.min)
+arraylib.max.register(Tensor, torch.max)
+arraylib.mean.register(Tensor, torch.mean)
+arraylib.std.register(Tensor, torch.std)
+arraylib.all.register(Tensor, torch.all)
+arraylib.is_floating.register(Tensor, lambda x: x.dtype in floatings)
+arraylib.is_integer.register(Tensor, lambda x: x.dtype in integers)
+arraylib.is_inexact.register(Tensor, lambda x: x.dtype in floatings + complexes)
+arraylib.is_bool.register(Tensor, lambda x: x.dtype == torch.bool)
+arraylib.ndarrays += (Tensor,)

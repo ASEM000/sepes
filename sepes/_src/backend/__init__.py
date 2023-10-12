@@ -20,9 +20,6 @@ from importlib.util import find_spec
 from typing import Literal, Callable
 import logging
 from contextlib import contextmanager
-from sepes._src.backend.arraylib.base import ArrayLib
-
-arraylib = ArrayLib()
 
 
 @ft.lru_cache(maxsize=None)

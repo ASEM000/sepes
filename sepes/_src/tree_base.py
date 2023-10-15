@@ -20,15 +20,11 @@ import abc
 from typing import Any, Hashable, TypeVar
 
 from typing_extensions import Unpack
-
-from sepes._src.backend import arraylib, treelib
+import sepes
 from sepes._src.code_build import fields
 from sepes._src.tree_index import AtIndexer
 from sepes._src.tree_pprint import (
     PPSpec,
-    attr_value_pp,
-    pp_dispatcher,
-    pps,
     tree_repr,
     tree_str,
 )
@@ -64,6 +60,7 @@ def recursive_getattr(tree: Any, where: tuple[str, ...]):
 class TreeClassIndexer(AtIndexer):
     def __call__(self, *a, **k) -> tuple[Any, PyTree]:
         """Call a method on the tree instance and return result and new instance."""
+        treelib = sepes._src.backend.treelib
         # to apply mutable methods on the tree instance, first, the original
         # tree is copied.
         tree = tree_copy(self.tree)
@@ -263,6 +260,7 @@ class TreeClass(metaclass=TreeClassMeta):
         # The flatten rule for `TreeClass` is equivalent to vars(self). and the
         # unflatten rule is equivalent to `klass(**flat_tree)`. The flatten/unflatten
         # rule is exactly same as the flatten rule for normal dictionaries.
+        treelib = sepes._src.backend.treelib
         treelib.register_treeclass(klass)
 
     def __setattr__(self, key: str, value: Any) -> None:
@@ -400,13 +398,21 @@ class TreeClass(metaclass=TreeClassMeta):
     def __hash__(self) -> int:
         return tree_hash(self)
 
-    def __eq__(self, other: Any) -> bool | arraylib.ndarray:
+    def __eq__(self, other: Any) -> bool:
         return is_tree_equal(self, other)
 
 
-@pp_dispatcher.register(TreeClass)
-def treeclass_pp(node: TreeClass, **spec: Unpack[PPSpec]) -> str:
+@tree_repr.def_type(TreeClass)
+def _(node: TreeClass, **spec: Unpack[PPSpec]) -> str:
     name = type(node).__name__
     skip = [f.name for f in fields(node) if not f.repr]
     kvs = tuple((k, v) for k, v in vars(node).items() if k not in skip)
-    return name + "(" + pps(kvs, pp=attr_value_pp, **spec) + ")"
+    return name + "(" + tree_repr.pps(tree_repr.av_pp, kvs, **spec) + ")"
+
+
+@tree_str.def_type(TreeClass)
+def _(node: TreeClass, **spec: Unpack[PPSpec]) -> str:
+    name = type(node).__name__
+    skip = [f.name for f in fields(node) if not f.repr]
+    kvs = tuple((k, v) for k, v in vars(node).items() if k not in skip)
+    return name + "(" + tree_str.pps(tree_str.av_pp, kvs, **spec) + ")"

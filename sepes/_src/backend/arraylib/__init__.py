@@ -11,3 +11,23 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+"""Backend tools for sepes."""
+
+from __future__ import annotations
+import functools as ft
+
+tobytes = ft.singledispatch(lambda array: ...)
+where = ft.singledispatch(lambda condition, x, y: ...)
+nbytes = ft.singledispatch(lambda array: ...)
+shape = ft.singledispatch(lambda array: ...)
+dtype = ft.singledispatch(lambda array: ...)
+min = ft.singledispatch(lambda array: ...)
+max = ft.singledispatch(lambda array: ...)
+mean = ft.singledispatch(lambda array: ...)
+std = ft.singledispatch(lambda array: ...)
+all = ft.singledispatch(lambda array: ...)
+is_floating = ft.singledispatch(lambda array: ...)
+is_integer = ft.singledispatch(lambda array: ...)
+is_inexact = ft.singledispatch(lambda array: ...)
+is_bool = ft.singledispatch(lambda array: ...)
+ndarrays: tuple[type, ...] = ()

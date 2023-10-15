@@ -18,11 +18,11 @@ from __future__ import annotations
 
 import functools as ft
 import hashlib
-from typing import Any, Callable, Generic, NamedTuple, TypeVar, Union
-
-from sepes._src.backend import arraylib, treelib
+from typing import Any, Callable, NamedTuple, TypeVar, Union
+import sepes
 from sepes._src.tree_pprint import tree_repr, tree_str, tree_summary
-from sepes._src.tree_util import is_tree_equal, tree_copy, tree_hash
+from sepes._src.tree_util import is_tree_equal, tree_copy, tree_hash, Static
+import sepes._src.backend.arraylib as arraylib
 
 T = TypeVar("T")
 MaskType = Union[T, Callable[[Any], bool]]
@@ -44,12 +44,12 @@ class _FrozenError(NamedTuple):
         )
 
 
-class _FrozenBase(Generic[T]):
+class _FrozenBase(Static):
     # the objective of this class is to wrap a pytree node with a custom wrapper
     # that yields no leaves when flattened. This is useful to avoid updating
     # the node by effectivly *hiding it* from function transformations that operates
     # on flattened pytrees.
-    __slots__ = ["__wrapped__", "__weakref__"]
+    __slots__ = ["__wrapped__"]
     __wrapped__: T
 
     def __init__(self, node: T) -> None:
@@ -69,12 +69,6 @@ class _FrozenBase(Generic[T]):
 
     def __copy__(self) -> _FrozenBase[T]:
         return type(self)(tree_copy(self.__wrapped__))
-
-    def __init_subclass__(klass, **k) -> None:
-        # register subclasses as an empty pytree node
-        super().__init_subclass__(**k)
-        # register with the proper backend
-        treelib.register_static(klass)
 
     # raise helpful error message when trying to interact with frozen object
     __add__ = __radd__ = __iadd__ = _FrozenError("+")
@@ -103,7 +97,7 @@ class _FrozenHashable(_FrozenBase):
     def __hash__(self) -> int:
         return tree_hash(self.__wrapped__)
 
-    def __eq__(self, rhs: Any) -> bool | arraylib.ndarray:
+    def __eq__(self, rhs: Any) -> bool:
         if not isinstance(rhs, _FrozenHashable):
             return False
         return is_tree_equal(self.__wrapped__, rhs.__wrapped__)
@@ -166,15 +160,17 @@ def freeze(value: T) -> _FrozenBase[T]:
     return freeze.type_dispatcher(value)
 
 
-freeze.type_dispatcher = ft.singledispatch(lambda x: _FrozenHashable(x))
+freeze.type_dispatcher = ft.singledispatch(_FrozenHashable)
 freeze.def_type = freeze.type_dispatcher.register
 
 
-@freeze.def_type(arraylib.ndarray)
-def _(value: T) -> _FrozenArray[T]:
-    # wrap arrays with a custom wrapper that implements hash and equality
-    # arrays can be hashed by converting them to bytes and hashing the bytes
-    return _FrozenArray(value)
+for ndarray in arraylib.ndarrays:
+
+    @freeze.def_type(ndarray)
+    def freeze_array(value: T) -> _FrozenArray[T]:
+        # wrap arrays with a custom wrapper that implements hash and equality
+        # arrays can be hashed by converting them to bytes and hashing the bytes
+        return _FrozenArray(value)
 
 
 @freeze.def_type(_FrozenBase)
@@ -258,12 +254,14 @@ is_nondiff.type_dispatcher = ft.singledispatch(lambda x: True)
 is_nondiff.def_type = is_nondiff.type_dispatcher.register
 
 
-@is_nondiff.def_type(arraylib.ndarray)
-def _(value: arraylib.ndarray) -> bool:
-    # return True if the node is non-inexact type, otherwise False
-    if arraylib.is_inexact(value):
-        return False
-    return True
+for ndarray in arraylib.ndarrays:
+
+    @is_nondiff.def_type(ndarray)
+    def is_nondiff_array(value) -> bool:
+        # return True if the node is non-inexact type, otherwise False
+        if arraylib.is_inexact(value):
+            return False
+        return True
 
 
 @is_nondiff.def_type(float)
@@ -279,6 +277,7 @@ def _tree_mask_map(
     *,
     is_leaf: Callable[[Any], None] | None = None,
 ):
+    treelib = sepes._src.backend.treelib
     # apply func to leaves satisfying mask pytree/condtion
     _, lhsdef = treelib.tree_flatten(tree, is_leaf=is_leaf)
     _, rhsdef = treelib.tree_flatten(mask, is_leaf=is_leaf)

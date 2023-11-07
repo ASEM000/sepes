@@ -93,14 +93,22 @@ html_theme = "sphinx_book_theme"
 
 
 html_theme_options = {
-    "show_toc_level": 2,
+    "show_toc_level": 1,
     "repository_url": "https://github.com/ASEM000/sepes",
     "use_repository_button": True,
     "collapse_navigation": False,
     "navigation_depth": 4,
     "globaltoc_collapse": True,
     "globaltoc_maxdepth": None,
+    "pygment_dark_style": "github-dark-high-contrast",
+    "path_to_docs": "docs",
+    "repository_branch": "main",
+    "launch_buttons": {
+        "notebook_interface": "jupyterlab",
+        "colab_url": "https://colab.research.google.com/",
+    },
 }
+
 
 # -- Options for doctest -----------------------------------------------------
 
@@ -134,63 +142,12 @@ katex_options = "macros: {" + katex_macros + "}"
 latex_elements = {"preamble": latex_macros}
 
 
-# -- Source code links -------------------------------------------------------
-
-
-def linkcode_resolve(domain, info):
-    """Resolve a GitHub URL corresponding to Python object."""
-    if domain != "py":
-        return None
-
-    try:
-        mod = sys.modules[info["module"]]
-    except ImportError:
-        return None
-
-    obj = mod
-    try:
-        for attr in info["fullname"].split("."):
-            obj = getattr(obj, attr)
-    except AttributeError:
-        return None
-    else:
-        obj = inspect.unwrap(obj)
-
-    try:
-        filename = inspect.getsourcefile(obj)
-    except TypeError:
-        return None
-
-    try:
-        source, lineno = inspect.getsourcelines(obj)
-    except OSError:
-        return None
-
-    return "https://github.com/ASEM000/sepes/blob/main/sepes/%s#L%d#L%d" % (
-        os.path.relpath(filename, start=os.path.dirname(sepes.__file__)),
-        lineno,
-        lineno + len(source) - 1,
-    )
-
-
 # -- nbsphinx configuration --------------------------------------------------
 
 nbsphinx_execute = "never"
 nbsphinx_codecell_lexer = "ipython"
 nbsphinx_kernel_name = "python"
 nbsphinx_timeout = 180
-
-
-# source: https://github.com/NTT123/pax/blob/main/docs/conf.py
-nbsphinx_prolog = r"""
-{% set docname = 'docs/' + env.doc2path(env.docname, base=None) %}
-
-.. only:: html
-
-    .. role:: raw-html(raw)
-        :format: html
-
-    .. nbinfo::
-        :raw-html:`<div style="text-align: left; padding: 0; margin: 0;"><a href="https://colab.research.google.com/github/asem000/sepes/blob/main/{{ docname }}" style="padding: 0; margin: 0;"><img alt="Open In Colab" src="https://colab.research.google.com/assets/colab-badge.svg" style="vertical-align:text-bottom; padding: 0; margin: 0;"></a></div>`
-
-"""
+# Tell sphinx-autodoc-typehints to generate stub parameter annotations including
+# types, even if the parameters aren't explicitly documented.
+always_document_param_types = True

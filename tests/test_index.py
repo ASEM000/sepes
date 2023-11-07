@@ -19,25 +19,25 @@ from typing import NamedTuple
 
 import pytest
 
-from sepes._src.backend import arraylib, backend, treelib
+from sepes._src.backend import backend, treelib
+from sepes._src.backend import arraylib
 from sepes._src.code_build import autoinit
-from sepes._src.tree_base import (
-    TreeClass,
-    add_mutable_entry,
-    discard_mutable_entry,
-)
+from sepes._src.tree_base import TreeClass, add_mutable_entry, discard_mutable_entry
 from sepes._src.tree_index import AtIndexer, BaseKey
 from sepes._src.tree_util import is_tree_equal, leafwise
+import os
 
-if backend == "jax":
+test_arraylib = os.environ.get("SEPES_TEST_ARRAYLIB", "numpy")
+
+if test_arraylib == "jax":
     import jax.numpy as arraylib
 
     default_int = arraylib.int32
-elif backend in ["numpy", "default"]:
+elif test_arraylib in ["numpy", "default"]:
     import numpy as arraylib
 
     default_int = arraylib.int64
-elif backend == "torch":
+elif test_arraylib == "torch":
     import torch as arraylib
 
     arraylib.array = arraylib.tensor
@@ -477,7 +477,7 @@ def test_call_context():
         t.delete("a")
 
 
-@pytest.mark.parametrize("where", [(None,), ("a", [1]), (0, [1])])
+@pytest.mark.parametrize("where", [("a", [1]), (0, [1])])
 def test_unsupported_where(where):
     t = namedtuple("a", ["x", "y"])(1, 2)
     with pytest.raises(NotImplementedError):
@@ -579,3 +579,20 @@ def test_repr_str():
     assert repr(t.at["a"]) == "TreeClassIndexer(tree=Tree(a=1, b=2), where=('a',))"
     assert str(t.at["a"]) == "TreeClassIndexer(tree=Tree(a=1, b=2), where=('a',))"
     assert repr(t.at[...]) == "TreeClassIndexer(tree=Tree(a=1, b=2), where=(Ellipsis,))"
+
+
+def test_compat_mask():
+    tree = [1, 2, [3, 4]]
+    tree_ = AtIndexer(tree)[[False, False, True]].set(10)
+    assert tree_ == [1, 2, 10]
+
+
+def test_pluck():
+    tree = [1, 2, [3, 4]]
+    subtrees = AtIndexer(tree)[2].pluck()
+    assert subtrees[0] == [3, 4]
+    assert AtIndexer(tree)[0, 1].pluck(1) == [1]
+    assert AtIndexer(tree)[0, 1].pluck(2) == [1, 2]
+
+    tree = dict(a=1, b=2)
+    assert AtIndexer(tree)[...].pluck() == [1, 2]

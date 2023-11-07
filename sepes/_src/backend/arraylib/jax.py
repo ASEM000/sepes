@@ -14,76 +14,23 @@
 
 from __future__ import annotations
 
+
+from jax import Array
 import jax.numpy as jnp
+import sepes._src.backend.arraylib as arraylib
 
-from sepes._src.backend.arraylib.base import AbstractArray
-
-
-class JaxArray(AbstractArray):
-    @staticmethod
-    def tobytes(array: jnp.ndarray) -> bytes:
-        return jnp.array(array).tobytes()
-
-    @property
-    def ndarray(self) -> type[jnp.ndarray]:
-        return jnp.ndarray
-
-    @staticmethod
-    def where(condition, x, y) -> jnp.ndarray:
-        return jnp.where(condition, x, y)
-
-    @staticmethod
-    def nbytes(array: jnp.ndarray) -> int:
-        return array.nbytes
-
-    @staticmethod
-    def size(array: jnp.ndarray) -> int:
-        return array.size
-
-    @staticmethod
-    def ndim(array: jnp.ndarray) -> int:
-        return array.ndim
-
-    @staticmethod
-    def shape(array: jnp.ndarray) -> tuple[int, ...]:
-        return array.shape
-
-    @staticmethod
-    def dtype(array: jnp.ndarray):
-        return array.dtype
-
-    @staticmethod
-    def min(array: jnp.ndarray) -> jnp.ndarray:
-        return jnp.min(array)
-
-    @staticmethod
-    def max(array: jnp.ndarray) -> jnp.ndarray:
-        return jnp.max(array)
-
-    @staticmethod
-    def mean(array: jnp.ndarray) -> jnp.ndarray:
-        return jnp.mean(array)
-
-    @staticmethod
-    def std(array: jnp.ndarray) -> jnp.ndarray:
-        return jnp.std(array)
-
-    @staticmethod
-    def all(array: jnp.ndarray) -> jnp.ndarray:
-        return jnp.all(array)
-
-    @staticmethod
-    def is_floating(array: jnp.ndarray) -> bool:
-        return jnp.issubdtype(array.dtype, jnp.floating)
-
-    @staticmethod
-    def is_integer(array: jnp.ndarray) -> bool:
-        return jnp.issubdtype(array.dtype, jnp.integer)
-
-    @staticmethod
-    def is_inexact(array: jnp.ndarray) -> bool:
-        return jnp.issubdtype(array.dtype, jnp.inexact)
-
-    @staticmethod
-    def is_bool(array: jnp.ndarray) -> bool:
-        return jnp.issubdtype(array.dtype, jnp.bool_)
+arraylib.tobytes.register(Array, lambda x: jnp.array(x).tobytes())
+arraylib.where.register(Array, jnp.where)
+arraylib.nbytes.register(Array, lambda x: x.nbytes)
+arraylib.shape.register(Array, jnp.shape)
+arraylib.dtype.register(Array, lambda x: x.dtype)
+arraylib.min.register(Array, jnp.min)
+arraylib.max.register(Array, jnp.max)
+arraylib.mean.register(Array, jnp.mean)
+arraylib.std.register(Array, jnp.std)
+arraylib.all.register(Array, jnp.all)
+arraylib.is_floating.register(Array, lambda x: jnp.issubdtype(x.dtype, jnp.floating))
+arraylib.is_integer.register(Array, lambda x: jnp.issubdtype(x.dtype, jnp.integer))
+arraylib.is_inexact.register(Array, lambda x: jnp.issubdtype(x.dtype, jnp.inexact))
+arraylib.is_bool.register(Array, lambda x: jnp.issubdtype(x.dtype, jnp.bool_))
+arraylib.ndarrays += (Array,)

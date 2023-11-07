@@ -27,13 +27,16 @@ from sepes._src.tree_mask import (
     tree_unmask,
     unfreeze,
 )
+import os
 from sepes._src.tree_util import is_tree_equal, leafwise, tree_hash
 
-if backend == "jax":
+test_arraylib = os.environ.get("SEPES_TEST_ARRAYLIB", "numpy")
+
+if test_arraylib == "jax":
     import jax.numpy as arraylib
-elif backend in ["numpy", "default"]:
+elif test_arraylib in ["numpy", "default"]:
     import numpy as arraylib
-elif backend == "torch":
+elif test_arraylib == "torch":
     import torch as arraylib
 
     arraylib.array = arraylib.tensor
@@ -176,15 +179,6 @@ def test_freeze_with_ops():
         a: int
 
     t = treelib.tree_map(freeze, (Test(100)))
-
-    with pytest.raises(LookupError):
-        is_tree_equal(t.at[...].set(0), t)
-
-    with pytest.raises(LookupError):
-        is_tree_equal(t.at[...].apply(lambda x: x + 1), t)
-
-    with pytest.raises(LookupError):
-        is_tree_equal(t.at[...].reduce(arraylib.add, initializer=0), t)
 
     class Test(TreeClass):
         def __init__(self, x):

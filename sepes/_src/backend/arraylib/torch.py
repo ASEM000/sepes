@@ -16,79 +16,25 @@ from __future__ import annotations
 
 import numpy as np
 import torch
-
-from sepes._src.backend.arraylib.base import AbstractArray
+from torch import Tensor
+import sepes._src.backend.arraylib as arraylib
 
 floatings = [torch.float16, torch.float32, torch.float64]
 complexes = [torch.complex32, torch.complex64, torch.complex128]
 integers = [torch.int8, torch.int16, torch.int32, torch.int64]
 
-
-class TorchArray(AbstractArray):
-    @staticmethod
-    def tobytes(array: torch.Tensor) -> bytes:
-        return np.from_dlpack(array).tobytes()
-
-    @property
-    def ndarray(self) -> type[torch.Tensor]:
-        return torch.Tensor
-
-    @staticmethod
-    def where(condition, x, y):
-        return torch.where(condition, x, y)
-
-    @staticmethod
-    def nbytes(array: torch.Tensor) -> int:
-        return array.nbytes
-
-    @staticmethod
-    def size(array: torch.Tensor) -> int:
-        return array.size().numel()
-
-    @staticmethod
-    def ndim(array: torch.Tensor) -> int:
-        return array.ndim
-
-    @staticmethod
-    def shape(array: torch.Tensor) -> tuple[int, ...]:
-        return tuple(array.shape)
-
-    @staticmethod
-    def dtype(array):
-        return array.dtype
-
-    @staticmethod
-    def min(array: torch.Tensor) -> torch.Tensor:
-        return torch.min(array)
-
-    @staticmethod
-    def max(array: torch.Tensor) -> torch.Tensor:
-        return torch.max(array)
-
-    @staticmethod
-    def mean(array: torch.Tensor) -> torch.Tensor:
-        return torch.mean(array)
-
-    @staticmethod
-    def std(array: torch.Tensor) -> torch.Tensor:
-        return torch.std(array)
-
-    @staticmethod
-    def all(array: torch.Tensor) -> torch.Tensor:
-        return torch.all(array)
-
-    @staticmethod
-    def is_floating(array: torch.Tensor) -> bool:
-        return array.dtype in floatings
-
-    @staticmethod
-    def is_integer(array: torch.Tensor) -> bool:
-        return array.dtype in integers
-
-    @staticmethod
-    def is_inexact(array):
-        return array.dtype in floatings + complexes
-
-    @staticmethod
-    def is_bool(array):
-        return array.dtype == torch.bool
+arraylib.tobytes.register(Tensor, lambda x: np.from_dlpack(x).tobytes())
+arraylib.where.register(Tensor, torch.where)
+arraylib.nbytes.register(Tensor, lambda x: x.nbytes)
+arraylib.shape.register(Tensor, lambda x: tuple(x.shape))
+arraylib.dtype.register(Tensor, lambda x: x.dtype)
+arraylib.min.register(Tensor, torch.min)
+arraylib.max.register(Tensor, torch.max)
+arraylib.mean.register(Tensor, torch.mean)
+arraylib.std.register(Tensor, torch.std)
+arraylib.all.register(Tensor, torch.all)
+arraylib.is_floating.register(Tensor, lambda x: x.dtype in floatings)
+arraylib.is_integer.register(Tensor, lambda x: x.dtype in integers)
+arraylib.is_inexact.register(Tensor, lambda x: x.dtype in floatings + complexes)
+arraylib.is_bool.register(Tensor, lambda x: x.dtype == torch.bool)
+arraylib.ndarrays += (Tensor,)

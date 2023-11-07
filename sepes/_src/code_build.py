@@ -35,7 +35,7 @@ import functools as ft
 import sys
 from collections import defaultdict
 from collections.abc import Callable, MutableMapping, MutableSequence, MutableSet
-from typing import Any, Literal, Mapping, Sequence, TypeVar, Union, get_args
+from typing import Any, Literal, Sequence, TypeVar, get_args
 
 from typing_extensions import dataclass_transform
 
@@ -44,6 +44,7 @@ PyTree = Any
 EllipsisType = type(Ellipsis)
 ArgKindType = Literal["POS_ONLY", "POS_OR_KW", "VAR_POS", "KW_ONLY", "VAR_KW"]
 ArgKind = get_args(ArgKindType)
+EXCLUDED_FIELD_NAMES: set[str] = {"self", "__post_init__", "__annotations__"}
 
 
 @ft.singledispatch
@@ -66,18 +67,25 @@ class Null:
 
 NULL = Null()
 
-DOC = """\
-Field Information:
-    Name:\t`{field.name}`
-    Default:\t{field.default}
 
-Description:
-    {field.doc}
+def generate_field_doc(field: Field) -> str:
+    out: list[str] = ["Field Information:"]
+    out += [f"\tName:\t\t``{field.name}``"]
+    out += [f"\tDefault:\t``{field.default}``"] if field.default is not NULL else []
+    out += [f"Description:\n\t{field.doc}"] if field.doc else []
 
-Callbacks:
-    - On Setting Attribute: {field.on_setattr}
-    - On Getting Attribute: {field.on_getattr}
-"""
+    if field.on_setattr or field.on_getattr:
+        out += ["Callbacks:"]
+
+    if field.on_setattr:
+        out += ["\t- On setting attribute:\n"]
+        out += [f"\t\t- ``{func}``" for func in field.on_setattr]
+
+    if field.on_getattr:
+        out += ["\t- On getting attribute:\n"]
+        out += [f"\t\t- ``{func}``" for func in field.on_getattr]
+
+    return "\n".join(out)
 
 
 def slots(klass) -> tuple[str, ...]:
@@ -185,7 +193,7 @@ class Field:
     @property
     def __doc__(self) -> str:
         """Return the field documentation."""
-        return DOC.format(field=self)
+        return generate_field_doc(field=self)
 
     def __get__(self: T, instance, _) -> T | Any:
         """Return the field value."""
@@ -237,25 +245,25 @@ def field(
         doc: extra documentation for the :func:.`field` .the complete documentation
             of the field includes the field name, the field doc, and the
             default value, and function callbacks applied on the field value.
+            Mainly used for documenting the field callbacks.
 
             .. code-block:: python
 
                 >>> import sepes as sp
                 >>> @sp.autoinit
                 ... class Tree:
-                ...     leaf: int = sp.field(default=1, doc="Leaf node of the tree.")
+                ...    leaf: int = sp.field(default=1, doc="Leaf node of the tree.", on_setattr=[lambda x:x])
+
                 >>> print(Tree.leaf.__doc__)  # doctest: +SKIP
-                Docstring:  
                 Field Information:
-                    Name:       `leaf`
-                    Default:    1
-
+                        Name:           ``leaf``
+                        Default:        ``1``
                 Description:
-                    Leaf node of the tree.
-
+                        Leaf node of the tree.
                 Callbacks:
-                    - On Setting Attribute: ()
-                    - On Getting Attribute: ()
+                        - On setting attribute:
+
+                                - ``<function Tree.<lambda> at 0x11c53dc60>``
 
     Example:
         Type and range validation using :attr:`on_setattr`:
@@ -391,7 +399,6 @@ def field(
 
 def build_field_map(klass: type) -> dict[str, Field]:
     field_map: dict[str, Field] = dict()
-    excluded = set(["self", "__post_init__", "__annotations__"])
 
     if klass is object:
         return dict(field_map)
@@ -402,8 +409,8 @@ def build_field_map(klass: type) -> dict[str, Field]:
     if (hint_map := vars(klass).get("__annotations__", NULL)) is NULL:
         return dict(field_map)
 
-    if excluded.intersection(hint_map):
-        raise ValueError(f"`Field` name cannot be in {excluded=}")
+    if EXCLUDED_FIELD_NAMES.intersection(hint_map):
+        raise ValueError(f"`Field` name cannot be in {EXCLUDED_FIELD_NAMES}")
 
     for key, hint in hint_map.items():
         # get the current base key
@@ -526,13 +533,21 @@ def build_init_method(klass: type[T]) -> type[T]:
 def autoinit(klass: type[T]) -> type[T]:
     """A class decorator that generates the ``__init__`` method from type hints.
 
-    Similar to ``dataclasses.dataclass``, this decorator generates the ``__init__``
-    method for the given class from the type hints or the :func:`field` objects
-    set to the class attributes.
+    Using the ``autoinit`` decorator, the user can define the class attributes
+    using type hints and the ``__init__`` method will be generated automatically
 
-    Compared to ``dataclasses.dataclass``, ``autoinit`` with :func:`field` objects
-    can be used to apply functions on the field values during initialization,
-    and/or support multiple argument kinds.
+    >>> import sepes as sp
+    >>> @sp.autoinit
+    ... class Tree:
+    ...     x: int
+    ...     y: int
+
+    Is equivalent to:
+
+    >>> class Tree:
+    ...     def __init__(self, x: int, y: int):
+    ...         self.x = x
+    ...         self.y = y
 
     Example:
         >>> import sepes as sp

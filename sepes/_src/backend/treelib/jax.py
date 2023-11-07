@@ -19,7 +19,7 @@ from typing import Any, Callable, Hashable, Iterable
 
 import jax.tree_util as jtu
 
-from sepes._src.backend.treelib.base import (
+from sepes._src.backend.treelib import (
     AbstractTreeLib,
     KeyPathLeaf,
     ParallelConfig,

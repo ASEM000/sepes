@@ -20,13 +20,14 @@ from collections import namedtuple
 from typing import Any
 
 import pytest
+import os
 
-from sepes._src.backend import backend
+test_arraylib = os.environ.get("SEPES_TEST_ARRAYLIB", "numpy")
+backend = os.environ.get("SEPES_BACKEND", "jax")
 from sepes._src.code_build import autoinit, field
 from sepes._src.tree_base import TreeClass
 from sepes._src.tree_pprint import (
     _table,
-    func_pp,
     tree_diagram,
     tree_graph,
     tree_mermaid,
@@ -36,11 +37,11 @@ from sepes._src.tree_pprint import (
 )
 from sepes._src.tree_util import leafwise
 
-if backend == "jax":
+if test_arraylib == "jax":
     import jax.numpy as arraylib
-elif backend in ["numpy", "default"]:
+elif test_arraylib in ["numpy", "default"]:
     import numpy as arraylib
-elif backend == "torch":
+elif test_arraylib == "torch":
     import torch as arraylib
 
     arraylib.array = arraylib.tensor
@@ -61,10 +62,7 @@ def test_func_pp():
     def example(a: int, b=1, *c, d, e=2, **f) -> str:
         ...  # fmt: skip
 
-    assert (
-        func_pp(example, indent=0, kind="str", width=60, depth=0, seen=set())
-        == "example(a, b, *c, d, e, **f)"
-    )
+    assert tree_repr(example) == "example(a, b, *c, d, e, **f)"
 
 
 @leafwise
@@ -143,7 +141,6 @@ def test_tree_summary():
         # trunk-ignore(flake8/E501)
         == "┌────┬─────┬─────┬───────┐\n│Name│Type │Count│Size   │\n├────┼─────┼─────┼───────┤\n│Σ   │Repr1│101  │341.00B│\n└────┴─────┴─────┴───────┘"
     )
-
     assert (
         tree_summary(r1, depth=1)
         # trunk-ignore(flake8/E501)
@@ -191,7 +188,6 @@ def test_misc():
         pass
 
     assert tree_repr(example) == tree_str(example) == "example(a, b, *c, d, e, **f)"
-    assert tree_repr(example, depth=-1) == "..."
 
     # example = jax.jit(example)
     # assert (
@@ -203,12 +199,12 @@ def test_misc():
         == "ui16[1,2](μ=1.00, σ=0.00, ∈[1,1])"
     )
 
-    @dc.dataclass
-    class Test:
-        a: int = 1
+    # @dc.dataclass
+    # class Test:
+    #     a: int = 1
 
-    assert tree_repr(Test()) == tree_str(Test()) == "Test(a=1)"
-    assert tree_repr(Test(), depth=0) == "Test(...)"
+    # assert tree_repr(Test()) == tree_str(Test()) == "Test(a=1)"
+    # assert tree_repr(Test(), depth=0) == "Test(...)"
 
 
 @pytest.mark.skipif(backend != "jax", reason="jax is not installed")

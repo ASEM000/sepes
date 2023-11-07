@@ -17,72 +17,97 @@ from __future__ import annotations
 import functools as ft
 import os
 from importlib.util import find_spec
-
-backend = os.environ.get("sepes_BACKEND", "").lower()
+from typing import Literal, Callable
+import logging
+from contextlib import contextmanager
 
 
 @ft.lru_cache(maxsize=None)
-def is_available(backend):
+def is_package_avaiable(backend: str) -> bool:
     return find_spec(backend) is not None
 
 
-if backend == "":
-    # backend promotion
-    if is_available("jax"):
-        backend = "jax"
-    elif is_available("torch"):
-        backend = "torch"
-    elif is_available("numpy"):
-        backend = "numpy"
-    else:
-        backend = "default"
+# by importing the backend modules here, we register the backend implementations
+# with the arraylib
+if is_package_avaiable("torch"):
+    import sepes._src.backend.arraylib.torch
+if is_package_avaiable("jax"):
+    import sepes._src.backend.arraylib.jax
+if is_package_avaiable("numpy"):
+    import sepes._src.backend.arraylib.numpy
 
 
-if backend == "default":
+def optree_backend():
     # no backend is available
-    if not is_available("optree"):
+    if not is_package_avaiable("optree"):
         raise ImportError("No backend is available. Please install `optree`.")
-
-    from sepes._src.backend.arraylib.noarray import NoArray
     from sepes._src.backend.treelib.optree import OpTreeTreeLib
 
-    arraylib = NoArray()
-    treelib = OpTreeTreeLib()
+    return OpTreeTreeLib()
 
-elif backend == "jax":
-    if not is_available("jax"):
+
+def jax_backend():
+    if not is_package_avaiable("jax"):
         raise ImportError("`jax` backend requires `jax` to be installed.")
-
-    from sepes._src.backend.arraylib.jax import JaxArray
     from sepes._src.backend.treelib.jax import JaxTreeLib
 
-    arraylib = JaxArray()
-    treelib = JaxTreeLib()
+    return JaxTreeLib()
 
-elif backend == "numpy":
-    if not is_available("optree"):
-        raise ImportError("`numpy` backend requires `optree` to be installed.")
 
-    if not is_available("numpy"):
-        raise ImportError("`numpy` backend requires `numpy` to be installed.")
+BackendLiteral = Literal["optree", "jax"]  # tree backend
+backend: BackendLiteral = os.environ.get("SEPES_BACKEND", "default").lower()
+backends_map: dict[BackendLiteral, Callable] = {}
+backends_map["jax"] = jax_backend
+backends_map["optree"] = optree_backend
 
-    from sepes._src.backend.arraylib.numpy import NumpyArray
-    from sepes._src.backend.treelib.optree import OpTreeTreeLib
-
-    arraylib = NumpyArray()
-    treelib = OpTreeTreeLib()
-
-elif backend == "torch":
-    if not is_available("torch"):
-        raise ImportError("`torch` backend requires `torch` to be installed.")
-    if not is_available("optree"):
-        raise ImportError("`torch` backend requires `optree` to be installed.")
-
-    from sepes._src.backend.arraylib.torch import TorchArray
-    from sepes._src.backend.treelib.optree import OpTreeTreeLib
-
-    arraylib = TorchArray()
-    treelib = OpTreeTreeLib()
-
+if backend == "default":
+    # backend promotion in essence is a search for the first available backend
+    # in the following order: jax, optree
+    # if no backend is available, then the default backend is used
+    for backend_name in backends_map:
+        if is_package_avaiable(backend_name):
+            treelib = backends_map[backend_name]()
+            backend = backend_name
+            logging.info(f"Successfully set backend to `{backend_name}`")
+            break
+elif backend == "jax":
+    treelib = jax_backend()
+    logging.info("Successfully set backend to `jax`")
+elif backend == "optree":
+    treelib = optree_backend()
+    logging.info(f"Successfully set backend to `{backend}`")
 else:
-    raise ValueError(f"Unknown backend: {backend!r}")
+    raise ValueError(f"Unknown backend: {backend!r}. available {backends_map.keys()=}")
+
+
+@contextmanager
+def backend_context(backend_name: BackendLiteral):
+    """Context manager for switching the tree backend within a context.
+
+    Args:
+        backend_name: The name of the backend to switch to. available backends are
+            ``optree`` and ``jax``.
+
+    Example:
+        Registering a custom tree class with optree backend:
+
+        >>> import sepes as sp
+        >>> import optree
+        >>> with sp.backend_context("optree"):
+        ...     class Tree(sp.TreeClass):
+        ...         def __init__(self, a, b):
+        ...             self.a = a
+        ...             self.b = b
+        ...     tree = Tree(1, 2)
+        >>> optree.tree_flatten(tree, namespace="sepes")
+        ([1, 2], PyTreeSpec(CustomTreeNode(Tree[('a', 'b')], [*, *]), namespace='sepes'))
+    """
+    global treelib, backend
+    old_treelib = treelib
+    old_backend = backend
+    try:
+        treelib = backends_map[backend_name]()
+        yield
+    finally:
+        treelib = old_treelib
+        backend = old_backend

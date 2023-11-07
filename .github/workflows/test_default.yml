@@ -12,7 +12,7 @@ jobs:
     strategy:
       matrix:
         os: [ubuntu-latest]
-        python-version: ["3.8", "3.9", "3.10", "3.11"]
+        python-version: ["3.8", "3.9", "3.10", "3.11", "3.12"]
 
     steps:
       - uses: actions/checkout@v2
@@ -29,7 +29,8 @@ jobs:
           python -m pip install pytest pytest-benchmark wheel coverage
       - name: Pytest Check
         run: |
-          export PYTREECLASS_BACKEND=default
+          export SEPES_TEST_ARRAYLIB=default
+          export SEPES_BACKEND=optree
           python -m pip install .
 
           coverage run -m pytest tests

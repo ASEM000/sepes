@@ -24,12 +24,14 @@ from sepes._src.code_build import autoinit, field
 from sepes._src.tree_base import TreeClass
 from sepes._src.tree_mask import freeze
 from sepes._src.tree_util import bcmap, is_tree_equal, leafwise
+import os
 
-if backend == "jax":
+test_arraylib = os.environ.get("SEPES_TEST_ARRAYLIB", "numpy")
+if test_arraylib == "jax":
     import jax.numpy as arraylib
-elif backend in ["numpy", "default"]:
+elif test_arraylib in ["numpy", "default"]:
     import numpy as arraylib
-elif backend == "torch":
+elif test_arraylib == "torch":
     import torch as arraylib
 
     arraylib.array = arraylib.tensor

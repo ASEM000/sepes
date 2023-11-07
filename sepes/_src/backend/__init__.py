@@ -100,7 +100,7 @@ def backend_context(backend_name: BackendLiteral):
         ...             self.b = b
         ...     tree = Tree(1, 2)
         >>> optree.tree_flatten(tree, namespace="sepes")
-        [1, 2]
+        ([1, 2], PyTreeSpec(CustomTreeNode(Tree[('a', 'b')], [*, *]), namespace='sepes'))
     """
     global treelib, backend
     old_treelib = treelib

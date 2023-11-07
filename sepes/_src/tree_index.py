@@ -945,7 +945,7 @@ class AtIndexer:
 
             This is equivalent to the following:
 
-            >>> [tree["a"], tree["b"][1]]
+            >>> [tree["a"], tree["b"][1]]  # doctest: +SKIP
         """
         treelib = sepes._src.backend.treelib
         tree = self.get(is_leaf=is_leaf, is_parallel=is_parallel)

@@ -20,22 +20,18 @@ import abc
 from typing import Any, Hashable, TypeVar
 
 from typing_extensions import Unpack
+
 import sepes
 from sepes._src.code_build import fields
 from sepes._src.tree_index import AtIndexer
-from sepes._src.tree_pprint import (
-    PPSpec,
-    tree_repr,
-    tree_str,
-)
+from sepes._src.tree_pprint import PPSpec, tree_repr, tree_str
 from sepes._src.tree_util import is_tree_equal, tree_copy, tree_hash
+from typing_extensions import Self
 
 T = TypeVar("T", bound=Hashable)
 S = TypeVar("S")
 PyTree = Any
 EllipsisType = type(Ellipsis)  # TODO: use typing.EllipsisType when available
-# set of instance ids that are marked as mutable.
-# being marked as mutable allows setattr/delattr to set/delete attributes.
 _mutable_instance_registry: set[int] = set()
 
 
@@ -49,44 +45,15 @@ def discard_mutable_entry(node) -> None:
     _mutable_instance_registry.discard(id(node))
 
 
-def recursive_getattr(tree: Any, where: tuple[str, ...]):
-    if not isinstance(where[0], str):
-        raise TypeError(f"Expected string, got {type(where[0])!r}.")
-    if len(where) == 1:
-        return getattr(tree, where[0])
-    return recursive_getattr(getattr(tree, where[0]), where[1:])
-
-
-class TreeClassIndexer(AtIndexer):
-    def __call__(self, *a, **k) -> tuple[Any, PyTree]:
-        """Call a method on the tree instance and return result and new instance."""
-        treelib = sepes._src.backend.treelib
-        # to apply mutable methods on the tree instance, first, the original
-        # tree is copied.
-        tree = tree_copy(self.tree)
-        # the copy is marked as mutable. since the method
-        # can mutate either a leaf or a container, `is_leaf` is used to traverse
-        # the tree depth-first and mark the ids of the tree nodes as mutable
-        treelib.tree_map(lambda _: _, tree, is_leaf=add_mutable_entry)
-        # execute the method on the copy of the tree with all of its nodes
-        # (leaves and containers) marked as mutable. this allows the method
-        # to mutate the tree instance at any level and from any inherited class.
-        value = recursive_getattr(tree, self.where)(*a, **k)  # type: ignore
-        # finally remove the mutable entries from the tree to disallow
-        # setattr/delattr to set/delete attributes after the modfications.
-        treelib.tree_map(lambda _: _, tree, is_leaf=discard_mutable_entry)
-        return value, tree
-
-
 class TreeClassMeta(abc.ABCMeta):
     def __call__(klass: type[T], *a, **k) -> T:
         tree = getattr(klass, "__new__")(klass, *a, **k)
         # allow the setattr/delattr to set/delete attributes in the initialization
-        # phase by registering the instance as mutable.
+        # phase by flagging the instance as mutable.
         add_mutable_entry(tree)
         # initialize the instance with the instance marked as mutable.
         getattr(klass, "__init__")(tree, *a, **k)
-        # remove the mutable entry after the initialization. to disallow
+        # remove the mutable flag after the initialization. to disallow
         # setattr/delattr to set/delete attributes after the initialization.
         discard_mutable_entry(tree)
         return tree
@@ -274,13 +241,7 @@ class TreeClass(metaclass=TreeClassMeta):
         if id(self) not in _mutable_instance_registry:
             raise AttributeError(
                 f"Cannot set attribute {value=} to `{key=}`  "
-                f"on an immutable instance of `{type(self).__name__}`.\n"
-                f"Use `.at['{key}'].set({value})` "
-                "to set the value immutably.\nExample:\n"
-                f">>> tree1 = {type(self).__name__}(...)\n"
-                f">>> tree2 = tree1.at['{key}'].set({value!r})\n"
-                ">>> assert not tree1 is tree2\n"
-                f">>> tree2.{key}\n{value}"
+                f"on an immutable instance of `{type(self).__name__}`."
             )
 
         getattr(object, "__setattr__")(self, key, value)
@@ -296,13 +257,12 @@ class TreeClass(metaclass=TreeClassMeta):
         if id(self) not in _mutable_instance_registry:
             raise AttributeError(
                 f"Cannot delete attribute `{key}` "
-                f"on immutable instance of `{type(self).__name__}`.\n"
-                f"Use `.at['{key}'].set(None)` instead."
+                f"on immutable instance of `{type(self).__name__}`."
             )
         getattr(object, "__delattr__")(self, key)
 
     @property
-    def at(self) -> TreeClassIndexer:
+    def at(self) -> AtIndexer[Self]:
         """Immutable out-of-place indexing.
 
         - ``.at[***].get()``:
@@ -384,7 +344,7 @@ class TreeClass(metaclass=TreeClassMeta):
             >>> tree.at["set_x"](x=1)[1].at["set_y"](y=2)[1].calculate()
             3
         """
-        return TreeClassIndexer(self)
+        return AtIndexer(self)
 
     def __repr__(self) -> str:
         return tree_repr(self)
@@ -416,3 +376,13 @@ def _(node: TreeClass, **spec: Unpack[PPSpec]) -> str:
     skip = [f.name for f in fields(node) if not f.repr]
     kvs = tuple((k, v) for k, v in vars(node).items() if k not in skip)
     return name + "(" + tree_str.pps(tree_str.av_pp, kvs, **spec) + ")"
+
+
+@AtIndexer.custom_call.def_mutator(TreeClass)
+def _(node: TreeClass) -> None:
+    add_mutable_entry(node)
+
+
+@AtIndexer.custom_call.def_immutator(TreeClass)
+def _(node: TreeClass) -> None:
+    discard_mutable_entry(node)

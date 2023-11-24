@@ -31,18 +31,32 @@ from __future__ import annotations
 import abc
 import functools as ft
 import re
-from typing import Any, Callable, Hashable, Tuple, TypeVar
+from typing import Any, Callable, Hashable, Tuple, TypeVar, Generic
+
 from typing_extensions import Self
+
 import sepes
-from sepes._src.backend.treelib import ParallelConfig
 import sepes._src.backend.arraylib as arraylib
+from sepes._src.backend.treelib import ParallelConfig
+from types import SimpleNamespace
+from sepes._src.tree_util import tree_copy
 
 T = TypeVar("T")
 S = TypeVar("S")
+PyTree = Any
 EllipsisType = TypeVar("EllipsisType")
 KeyEntry = TypeVar("KeyEntry", bound=Hashable)
 KeyPath = Tuple[KeyEntry, ...]
 _no_initializer = object()
+
+
+def recursive_getattr(tree: Any, where: tuple[str, ...]):
+    # used to fetch methods from a class defined by path mask
+    if not isinstance(where[0], str):
+        raise TypeError(f"Expected string, got {type(where[0])!r}.")
+    if len(where) == 1:
+        return getattr(tree, where[0])
+    return recursive_getattr(getattr(tree, where[0]), where[1:])
 
 
 class BaseKey(abc.ABC):
@@ -377,7 +391,7 @@ def generate_path_mask(tree, where: tuple[BaseKey, ...], *, is_leaf=None):
 
     if not match:
         path_leaf, _ = treelib.tree_path_flatten(tree, is_leaf=is_leaf)
-        names = ", ".join(treelib.keystr(path) for path, _ in path_leaf)
+        names = "".join("\n  - " + treelib.keystr(path) for path, _ in path_leaf)
         raise LookupError(_NO_LEAF_MATCH.format(where=where, names=names))
 
     return mask
@@ -477,7 +491,7 @@ def resolve_where(
     return mask
 
 
-class AtIndexer:
+class AtIndexer(Generic[T]):
     """Index a pytree at a given path using a path or mask.
 
     Args:
@@ -535,7 +549,7 @@ class AtIndexer:
         Tree(a=1, b=None)
     """
 
-    def __init__(self, tree: Any, where: tuple[BaseKey | Any] | tuple[()] = ()):
+    def __init__(self, tree: T, where: tuple[BaseKey | Any] | tuple[()] = ()):
         self.tree = tree
         self.where = where
 
@@ -975,3 +989,129 @@ class AtIndexer:
 
         treelib.tree_flatten(tree, is_leaf=aggregate_subtrees)
         return subtrees
+
+    def __call__(self, *args, **kwargs) -> tuple[Any, PyTree]:
+        """Call and return a tuple of the result and copy of the tree.
+
+        Executes the method defined by the ``where`` path on the tree on
+        a copy of the tree and returns a tuple of the result and the copy.
+        To avoid mutating in place, use this method instead of calling the
+        method directly on the tree.
+
+        Example:
+            >>> import sepes as sp
+            >>> import jax
+            >>> @jax.tree_util.register_pytree_with_keys_class
+            ... class Counter:
+            ...    def __init__(self, count: int):
+            ...        self.count = count
+            ...    def tree_flatten_with_keys(self):
+            ...        return (["count", self.count],), None
+            ...    @classmethod
+            ...    def tree_unflatten(cls, aux_data, children):
+            ...        del aux_data
+            ...        return cls(*children)
+            ...    def increment_count(self) -> int:
+            ...        # mutates the tree
+            ...        self.count += 1
+            ...        return self.count
+            ...    def __repr__(self) -> str:
+            ...        return f"Tree(count={self.count})"
+            >>> counter = Counter(0)
+            >>> indexer = sp.AtIndexer(counter)
+            >>> cur_count, new_counter = indexer["increment_count"]()
+            >>> counter, new_counter
+            (Tree(count=0), Tree(count=1))
+
+        Note:
+            The default behavior of :class:`.AtIndexer` ``__call__`` is to copy
+            the instance and then call the method on the copy. However certain
+            classes (e.g. :class:`.TreeClass` or ``dataclasses.dataclass(frozen=True)``)
+            do not support in-place mutation. In this case, :class:`.AtIndexer`
+            enables registering custom function that modifies the instance
+            to allow in-place mutation. and custom function that restores the
+            instance to its original state after the method call.
+
+            The following example shows how to register custom functions for
+            a simple class that allows in-place mutation if ``immutable`` Flag
+            is set to ``False``.
+
+            >>> import jax
+            >>> from jax.util import unzip2
+            >>> import sepes as sp
+            >>> @jax.tree_util.register_pytree_node_class
+            ... class MyNode:
+            ...     def __init__(self):
+            ...         self.counter = 0
+            ...         self.immutable = True
+            ...     def tree_flatten(self):
+            ...         keys, values = unzip2(vars(self).items())
+            ...         return tuple(values), tuple(keys)
+            ...     @classmethod
+            ...     def tree_unflatten(cls, keys, values):
+            ...         self = object.__new__(cls)
+            ...         vars(self).update(dict(zip(keys, values)))
+            ...         return self
+            ...     def __setattr__(self, name, value):
+            ...         if getattr(self, "immutable", False) is True:
+            ...             raise AttributeError("MyNode is immutable")
+            ...         object.__setattr__(self, name, value)
+            ...     def __repr__(self):
+            ...         params = ", ".join(f"{k}={v}" for k, v in vars(self).items())
+            ...         return f"MyNode({params})"
+            ...     def increment(self) -> None:
+            ...         self.counter += 1
+            >>> @sp.AtIndexer.custom_call.def_mutator(MyNode)
+            ... def mutable(node) -> None:
+            ...     vars(node)["immutable"] = False
+            >>> @sp.AtIndexer.custom_call.def_immutator(MyNode)
+            ... def immutable(node) -> None:
+            ...     vars(node)["immutable"] = True
+            >>> node = MyNode()
+            >>> sp.AtIndexer(node)["increment"]()
+            (None, MyNode(counter=1, immutable=True))
+        """
+        # copy the current tree
+        tree = tree_copy(self.tree)
+        # and edit the node/record to make it mutable (if there is a rule for it)
+        tree_mutate(tree)
+        # use the copied mutable version of the tree to call the method
+        method = recursive_getattr(tree, self.where)
+        output = method(*args, **kwargs)
+        # traverse each node in the tree depth-first manner
+        # to undo the mutation (if there is a rule for it)
+        tree_immutate(tree)
+        return output, tree
+
+
+def tree_mutate(tree):
+    treelib = sepes._src.backend.treelib
+
+    def is_leaf(node):
+        AtIndexer.custom_call.mutator_dispatcher(node)
+        return False
+
+    return treelib.tree_map(lambda x: x, tree, is_leaf=is_leaf)
+
+
+def tree_immutate(tree):
+    treelib = sepes._src.backend.treelib
+
+    def is_leaf(node):
+        AtIndexer.custom_call.immutator_dispatcher(node)
+        return False
+
+    return treelib.tree_map(lambda x: x, tree, is_leaf=is_leaf)
+
+
+# define rules for mutating and restoring the tree after calling a method
+# useful in case the class does not support in-place mutation
+# thus a rule to mutate the tree before calling the method and
+# a rule to restore the tree after calling the method is needed.
+custom_call = SimpleNamespace()
+custom_call.mutator_dispatcher = ft.singledispatch(lambda node: node)
+custom_call.immutator_dispatcher = ft.singledispatch(lambda node: node)
+custom_call.def_mutator = custom_call.mutator_dispatcher.register
+custom_call.def_immutator = custom_call.immutator_dispatcher.register
+
+AtIndexer.custom_call = custom_call

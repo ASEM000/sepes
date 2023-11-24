@@ -22,20 +22,21 @@ import inspect
 import math
 from contextlib import suppress
 from itertools import zip_longest
+from math import prod
 from types import FunctionType
 from typing import Any, Callable, NamedTuple, Sequence
-import dataclasses as dc
+
 from typing_extensions import TypeAlias, TypedDict, Unpack
+
 import sepes
+import sepes._src.backend.arraylib as arraylib
+from sepes._src.backend import is_package_avaiable
 from sepes._src.tree_util import (
     Node,
     construct_tree,
     is_path_leaf_depth_factory,
     tree_typed_path_leaves,
 )
-from math import prod
-from sepes._src.backend import is_package_avaiable
-import sepes._src.backend.arraylib as arraylib
 
 
 class PPSpec(TypedDict):
@@ -159,16 +160,23 @@ def _(node: Any, **spec: Unpack[PPSpec]) -> str:
 @tree_str.def_type(FunctionType)
 def _(func: Callable, **spec: Unpack[PPSpec]) -> str:
     del spec
-    args, varargs, varkw, _, kwonlyargs, _, _ = inspect.getfullargspec(func)
-    args = (", ".join(args)) if len(args) > 0 else ""
-    varargs = ("*" + varargs) if varargs is not None else ""
-    kwonlyargs = (", ".join(kwonlyargs)) if len(kwonlyargs) > 0 else ""
-    varkw = ("**" + varkw) if varkw is not None else ""
-    name = getattr(func, "__name__", "")
-    text = f"{name}("
-    text += ", ".join(i for i in [args, varargs, kwonlyargs, varkw] if i != "")
-    text += ")"
-    return text
+    fullargspec = inspect.getfullargspec(func)
+
+    header: list[str] = []
+
+    if len(fullargspec.args):
+        header += fullargspec.args
+    if fullargspec.varargs is not None:
+        header += ["*" + fullargspec.varargs]
+    if len(fullargspec.kwonlyargs):
+        if fullargspec.varargs is None:
+            header += ["*"]
+        header += fullargspec.kwonlyargs
+    if fullargspec.varkw is not None:
+        header += ["**" + fullargspec.varkw]
+
+    *_, name = getattr(func, "__qualname__", "").split(".")
+    return f"{name}({', '.join(header)})"
 
 
 @tree_str.def_type(ft.partial)
@@ -204,21 +212,6 @@ def _(node: dict, **spec: Unpack[PPSpec]) -> str:
 @tree_str.def_type(str)
 def _(node: str, **spec: Unpack[PPSpec]) -> str:
     return node
-
-
-@tree_repr.def_type(FunctionType)
-def _(func: Callable, **spec: Unpack[PPSpec]) -> str:
-    del spec
-    args, varargs, varkw, _, kwonlyargs, _, _ = inspect.getfullargspec(func)
-    args = (", ".join(args)) if len(args) > 0 else ""
-    varargs = ("*" + varargs) if varargs is not None else ""
-    kwonlyargs = (", ".join(kwonlyargs)) if len(kwonlyargs) > 0 else ""
-    varkw = ("**" + varkw) if varkw is not None else ""
-    name = getattr(func, "__name__", "")
-    text = f"{name}("
-    text += ", ".join(i for i in [args, varargs, kwonlyargs, varkw] if i != "")
-    text += ")"
-    return text
 
 
 for ndarray in arraylib.ndarrays:
@@ -257,7 +250,7 @@ for ndarray in arraylib.ndarrays:
 
 @tree_repr.def_type(ft.partial)
 def _(node: ft.partial, **spec: Unpack[PPSpec]) -> str:
-    return f"Partial(" + tree_repr.pp(node.func, **spec) + ")"
+    return "Partial(" + tree_repr.pp(node.func, **spec) + ")"
 
 
 @tree_repr.def_type(list)
@@ -724,8 +717,12 @@ if is_package_avaiable("jax"):
     # instead of <jax._src.custom_derivatives.custom_jvp object at ...>
     @tree_repr.def_type(jax.custom_jvp)
     def _(node: jax.custom_jvp, **spec: Unpack[PPSpec]) -> str:
-        return tree_repr.dispatch(node.__wrapped__, **spec)
+        node = getattr(node, "__wrapped__", "<unknown>")
+        return tree_repr.dispatch(node, **spec)
 
     @tree_repr.def_type(type(jax.jit(lambda x: x)))
     def _(node, **spec: Unpack[PPSpec]) -> str:
-        return tree_repr.dispatch(node.__wrapped__, **spec)
+        # on copy pjit loses the __wrapped__ attribute (maybe a bug in jax)
+        # so we need to handle it here
+        node = getattr(node, "__wrapped__", "<unknown>")
+        return "jit(" + tree_repr.dispatch(node, **spec) + ")"

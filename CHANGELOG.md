@@ -1,5 +1,41 @@
 # Changelog
 
+## V0.11.1
+
+- `__call__` is added to `AtIndexer` to enable methods that work on copied instance.
+  to avoid mutating in-place. _This is useful to write methods in stateful manner, and
+  use the `AtIndexer` to operate in a functional manner_. This feature was previously
+  enabled only for `TreeClass`, but now it is enabled for any class.
+
+  The following shows how to use `AtIndexer` to call a method that mutates the tree
+  in-place, in an out-of-place manner (i.e. execute the method on a copy of the tree)
+
+  ```python
+  import sepes as sp
+  import jax.tree_util as jtu
+  class Counter:
+      def __init__(self, count: int):
+          self.count = count
+      def increment_count(self, count:int) -> int:
+          # mutates the tree
+          self.count += count
+          return self.count
+      def __repr__(self) -> str:
+          return f"Tree(count={self.count})"
+  counter = Counter(0)
+  indexer = sp.AtIndexer(counter)
+  cur_count, new_counter = indexer["increment_count"](count=1)
+  assert counter.count == 0  # did not mutate in-place
+  assert cur_count == 1  # the method returned the current count
+  assert new_counter.count == 1  # the copied instance where the method was executed
+  assert not (counter is new_counter)  # the old and new instance are not the same
+  ```
+
+  If the instance is frozen (e.g. `dataclasses.dataclass(frozen=True)`) ,or implements
+  a custom `__setattr__`/`__delattr__` then the `__call__` may not work. Register
+  a custom mutator/immutator to `AtIndexer` to enable `__call__` to work. For more
+  see `AtIndexer.__call__` docstring.
+
 ## V0.11
 
 - Mark full subtrees for replacement.

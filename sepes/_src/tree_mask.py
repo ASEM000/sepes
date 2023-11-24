@@ -19,10 +19,11 @@ from __future__ import annotations
 import functools as ft
 import hashlib
 from typing import Any, Callable, NamedTuple, TypeVar, Union
+
 import sepes
-from sepes._src.tree_pprint import tree_repr, tree_str, tree_summary
-from sepes._src.tree_util import is_tree_equal, tree_copy, tree_hash, Static
 import sepes._src.backend.arraylib as arraylib
+from sepes._src.tree_pprint import tree_repr, tree_str, tree_summary
+from sepes._src.tree_util import Static, is_tree_equal, tree_copy, tree_hash
 
 T = TypeVar("T")
 MaskType = Union[T, Callable[[Any], bool]]

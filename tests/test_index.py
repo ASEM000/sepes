@@ -13,19 +13,18 @@
 # limitations under the License.
 
 
+import os
 import re
 from collections import namedtuple
 from typing import NamedTuple
 
 import pytest
 
-from sepes._src.backend import backend, treelib
-from sepes._src.backend import arraylib
+from sepes._src.backend import arraylib, backend, treelib
 from sepes._src.code_build import autoinit
-from sepes._src.tree_base import TreeClass, add_mutable_entry, discard_mutable_entry
+from sepes._src.tree_base import TreeClass, _mutable_instance_registry
 from sepes._src.tree_index import AtIndexer, BaseKey
 from sepes._src.tree_util import is_tree_equal, leafwise
-import os
 
 test_arraylib = os.environ.get("SEPES_TEST_ARRAYLIB", "numpy")
 
@@ -469,9 +468,9 @@ def test_call_context():
 
     t = L2()
 
-    add_mutable_entry(t)
+    _mutable_instance_registry.add(id(t))
     t.delete("a")
-    discard_mutable_entry(t)
+    _mutable_instance_registry.discard(id(t))
 
     with pytest.raises(AttributeError):
         t.delete("a")
@@ -576,9 +575,9 @@ def test_repr_str():
 
     t = Tree()
 
-    assert repr(t.at["a"]) == "TreeClassIndexer(tree=Tree(a=1, b=2), where=('a',))"
-    assert str(t.at["a"]) == "TreeClassIndexer(tree=Tree(a=1, b=2), where=('a',))"
-    assert repr(t.at[...]) == "TreeClassIndexer(tree=Tree(a=1, b=2), where=(Ellipsis,))"
+    assert repr(t.at["a"]) == "AtIndexer(tree=Tree(a=1, b=2), where=('a',))"
+    assert str(t.at["a"]) == "AtIndexer(tree=Tree(a=1, b=2), where=('a',))"
+    assert repr(t.at[...]) == "AtIndexer(tree=Tree(a=1, b=2), where=(Ellipsis,))"
 
 
 def test_compat_mask():
@@ -596,3 +595,37 @@ def test_pluck():
 
     tree = dict(a=1, b=2)
     assert AtIndexer(tree)[...].pluck() == [1, 2]
+
+
+@pytest.mark.skipif(backend != "jax", reason="jax backend needed")
+def test_call():
+    import jax.tree_util as jtu
+
+    @jtu.register_pytree_with_keys_class
+    class Counter:
+        def __init__(self, count: int):
+            self.count = count
+
+        def tree_flatten_with_keys(self):
+            return (["count", self.count],), None
+
+        @classmethod
+        def tree_unflatten(cls, aux_data, children):
+            del aux_data
+            return cls(*children)
+
+        def increment_count(self) -> int:
+            # mutates the tree
+            self.count += 1
+            return self.count
+
+        def __repr__(self) -> str:
+            return f"Tree(count={self.count})"
+
+    counter = Counter(0)
+    indexer = AtIndexer(counter)
+    cur_count, new_counter = indexer["increment_count"]()
+    assert counter.count == 0
+    assert cur_count == 1
+    assert new_counter.count == 1
+    assert not (counter is new_counter)

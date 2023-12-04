@@ -11,7 +11,8 @@
         apply,
         scan,
         reduce,
-        pluck
+        pluck,
+        __call__
 .. autoclass:: BaseKey
     :members:
         __eq__

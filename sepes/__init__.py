@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from sepes._src.backend import backend_context
 from sepes._src.code_build import autoinit, field, fields
 from sepes._src.tree_base import TreeClass
 from sepes._src.tree_index import AtIndexer, BaseKey
@@ -32,7 +33,6 @@ from sepes._src.tree_pprint import (
     tree_summary,
 )
 from sepes._src.tree_util import Partial, bcmap, is_tree_equal, leafwise
-from sepes._src.backend import backend_context
 
 __all__ = (
     # general utils
@@ -66,7 +66,7 @@ __all__ = (
     "backend_context",
 )
 
-__version__ = "0.11.0"
+__version__ = "0.11.1"
 
 AtIndexer.__module__ = "sepes"
 TreeClass.__module__ = "sepes"

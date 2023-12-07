@@ -252,8 +252,11 @@ def field(
                 >>> import sepes as sp
                 >>> @sp.autoinit
                 ... class Tree:
-                ...    leaf: int = sp.field(default=1, doc="Leaf node of the tree.", on_setattr=[lambda x:x])
-
+                ...     leaf: int = sp.field(
+                ...         default=1,
+                ...         doc="Leaf node of the tree.",
+                ...         on_setattr=[lambda x: x],
+                ... )
                 >>> print(Tree.leaf.__doc__)  # doctest: +SKIP
                 Field Information:
                         Name:           ``leaf``

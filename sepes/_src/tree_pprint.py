@@ -549,13 +549,13 @@ def tree_summary(
         String summary of the tree structure:
             - First column: path to the node.
             - Second column: type of the node. to control the displayed type use
-                `tree_summary.def_type(type, func)` to define a custom type display function.
+              ``tree_summary.def_type(type, func)`` to define a custom type display function.
             - Third column: number of leaves in the node. for arrays the number of leaves
-                is the number of elements in the array, otherwise its 1. to control the
-                number of leaves of a node use `tree_summary.def_count(type,func)`
+              is the number of elements in the array, otherwise its 1. to control the
+              number of leaves of a node use ``tree_summary.def_count(type,func)``
             - Fourth column: size of the node in bytes. if the node is array the size
-                is the size of the array in bytes, otherwise its the size is not displayed.
-                to control the size of a node use `tree_summary.def_size(type,func)`
+              is the size of the array in bytes, otherwise its the size is not displayed.
+              to control the size of a node use ``tree_summary.def_size(type,func)``
             - Last row: type of parent, number of leaves of the parent
 
     Example:

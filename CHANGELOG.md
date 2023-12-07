@@ -1,5 +1,10 @@
 # Changelog
 
+## V0.11.2
+
+- No freezing rule for `jax.Tracer` in `sp.freeze`
+- Add pprint rule `jax.Tracer` in `sp.tree_repr`/`sp.tree_str`
+
 ## V0.11.1
 
 - `__call__` is added to `AtIndexer` to enable methods that work on copied instance.

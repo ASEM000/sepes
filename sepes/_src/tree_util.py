@@ -93,6 +93,8 @@ def is_tree_equal(*trees: Any) -> bool:
 class Static(Generic[T]):
     def __init_subclass__(klass, **k) -> None:
         # register subclasses as an empty pytree node
+        # written like this to enforce selection of the proper backend
+        # every time a subclass is created
         super().__init_subclass__(**k)
         # register with the proper backend
         treelib = sepes._src.backend.treelib
@@ -162,105 +164,64 @@ def bcmap(
 
     Args:
         func: the function to be mapped over the pytree
-        is_leaf: a predicate function that returns True if the node is a leaf
+        is_leaf: a predicate function that returns True if the node is a leaf.
 
     Example:
-        >>> import jax
+        Transform `numpy` functions to work with pytrees:
+
         >>> import sepes as sp
-        >>> import functools as ft
-
-        >>> @sp.autoinit
-        ... @sp.leafwise
-        ... class Test(sp.TreeClass):
-        ...    a: tuple[int, int, int] = (1, 2, 3)
-        ...    b: tuple[int, int, int] = (4, 5, 6)
-        ...    c: jax.Array = jnp.array([1, 2, 3])
-
-        >>> tree = Test()
-
-        >>> # 0 is broadcasted to all leaves of the pytree
-        >>> print(sp.bcmap(jnp.where)(tree > 1, tree, 0))
-        Test(a=(0, 2, 3), b=(4, 5, 6), c=[0 2 3])
-        >>> print(sp.bcmap(jnp.where)(tree > 1, 0, tree))
-        Test(a=(1, 0, 0), b=(0, 0, 0), c=[1 0 0])
-
-        >>> # 1 is broadcasted to all leaves of the list pytree
-        >>> sp.bcmap(lambda x, y: x + y)([1, 2, 3], 1)
-        [2, 3, 4]
-
-        >>> # trees are summed leaf-wise
-        >>> sp.bcmap(lambda x, y: x + y)([1, 2, 3], [1, 2, 3])
-        [2, 4, 6]
-
-        >>> # Non scalar second args case
-        >>> try:
-        ...     sp.bcmap(lambda x, y: x + y)([1, 2, 3], [[1, 2, 3], [1, 2, 3]])
-        ... except TypeError as e:
-        ...     print(e)
-        unsupported operand type(s) for +: 'int' and 'list'
-
-        >>> # using **numpy** functions on pytrees
         >>> import jax.numpy as jnp
-        >>> sp.bcmap(jnp.add)([1, 2, 3], [1, 2, 3]) # doctest: +SKIP
-        [2, 4, 6]
+        >>> tree_of_arrays = {"a": jnp.array([1, 2, 3]), "b": jnp.array([4, 5, 6])}
+        >>> tree_add = sp.bcmap(jnp.add)
+        >>> # both lhs and rhs are pytrees
+        >>> print(sp.tree_str(tree_add(tree_of_arrays, tree_of_arrays)))
+        {a:[2 4 6], b:[ 8 10 12]}
+        >>> # rhs is a scalar
+        >>> print(sp.tree_str(tree_add(tree_of_arrays, 1)))
+        {a:[2 3 4], b:[5 6 7]}
     """
+    # add broadcasting argnum/argname to the function later
     treelib = sepes._src.backend.treelib
 
     @ft.wraps(func)
     def wrapper(*args, **kwargs):
-        if len(args):
-            # positional arguments are passed the argument to be compare
-            # the tree structure with is the first argument
-            leaves0, treedef0 = treelib.tree_flatten(args[0], is_leaf=is_leaf)
-            masked_args = [...]
-            masked_kwargs = {}
-            leaves = [leaves0]
-            leaves_keys = []
+        cargs = []
+        ckwargs = {}
+        leaves = []
+        kwargs_keys: list[str] = []
 
-            for arg in args[1:]:
-                _, argdef = treelib.tree_flatten(arg)
-                if treedef0 == argdef:
-                    masked_args += [...]
-                    leaves += [treedef0.flatten_up_to(arg)]
-                else:
-                    masked_args += [arg]
-        else:
-            # only kwargs are passed the argument to be compare
-            # the tree structure with is the first kwarg
-            key0 = next(iter(kwargs))
-            leaves0, treedef0 = treelib.tree_flatten(kwargs.pop(key0), is_leaf=is_leaf)
-            masked_args = []
-            masked_kwargs = {key0: ...}
-            leaves = [leaves0]
-            leaves_keys = [key0]
+        treedef0 = (
+            # reference treedef is the first positional argument
+            treelib.tree_flatten(args[0], is_leaf=is_leaf)[1]
+            if len(args)
+            # reference treedef is the first keyword argument
+            else treelib.tree_flatten(kwargs[next(iter(kwargs))], is_leaf=is_leaf)[1]
+        )
+
+        for arg in args:
+            if treedef0 == treelib.tree_flatten(arg, is_leaf=is_leaf)[1]:
+                cargs += [...]
+                leaves += [treedef0.flatten_up_to(arg)]
+            else:
+                cargs += [arg]
 
         for key in kwargs:
-            _, kwargdef = treelib.tree_flatten(kwargs[key])
-            if treedef0 == kwargdef:
-                masked_kwargs[key] = ...
+            if treedef0 == treelib.tree_flatten(kwargs[key], is_leaf=is_leaf)[1]:
+                ckwargs[key] = ...
                 leaves += [treedef0.flatten_up_to(kwargs[key])]
-                leaves_keys += [key]
+                kwargs_keys += [key]
             else:
-                masked_kwargs[key] = kwargs[key]
+                ckwargs[key] = kwargs[key]
 
-        bfunc = Partial(func, *masked_args, **masked_kwargs)
-
-        if len(leaves_keys) == 0:
-            # no kwargs leaves are present, so we can immediately zip
-            return treelib.tree_unflatten(treedef0, [bfunc(*xs) for xs in zip(*leaves)])
-
-        # kwargs leaves are present, so we need to zip them
-        kwargnum = len(leaves) - len(leaves_keys)
+        split_index = len(leaves) - len(kwargs_keys)
         all_leaves = []
-        for xs in zip(*leaves):
-            xs_args, xs_kwargs = xs[:kwargnum], xs[kwargnum:]
-            all_leaves += [bfunc(*xs_args, **dict(zip(leaves_keys, xs_kwargs)))]
+        bfunc = Partial(func, *cargs, **ckwargs)
+        for args_kwargs_values in zip(*leaves):
+            args = args_kwargs_values[:split_index]
+            kwargs = dict(zip(kwargs_keys, args_kwargs_values[split_index:]))
+            all_leaves += [bfunc(*args, **kwargs)]
         return treelib.tree_unflatten(treedef0, all_leaves)
 
-    name = getattr(func, "__name__", func)
-
-    docs = f"Broadcasted version of {name}\n{func.__doc__}"
-    wrapper.__doc__ = docs
     return wrapper
 
 

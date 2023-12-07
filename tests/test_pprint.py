@@ -107,13 +107,13 @@ def test_repr():
     assert (
         tree_repr(r1)
         # trunk-ignore(flake8/E501)
-        == "Repr1(\n  a=1, \n  b=string, \n  c=1.0, \n  d=aaaaa, \n  e=[10, 10, 10, 10, 10], \n  f={1, 2, 3}, \n  g={\n    a:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa, \n    b:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb, \n    c:f32[5,5](μ=1.00, σ=0.00, ∈[1.00,1.00])\n  }, \n  h=f32[5,1](μ=1.00, σ=0.00, ∈[1.00,1.00]), \n  i=f32[1,6](μ=1.00, σ=0.00, ∈[1.00,1.00]), \n  j=f32[1,1,4,5](μ=1.00, σ=0.00, ∈[1.00,1.00]), \n  l=a(b=1, c=2), \n  m=f32[5,5](μ=1.00, σ=0.00, ∈[1.00,1.00]), \n  n=bool[], \n  o=c64[2]\n)"
+        == "Repr1(\n  a=1, \n  b=string, \n  c=1.0, \n  d=aaaaa, \n  e=[10, 10, 10, 10, 10], \n  f={1, 2, 3}, \n  g=dict(\n    a=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa, \n    b=bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb, \n    c=f32[5,5](μ=1.00, σ=0.00, ∈[1.00,1.00])\n  ), \n  h=f32[5,1](μ=1.00, σ=0.00, ∈[1.00,1.00]), \n  i=f32[1,6](μ=1.00, σ=0.00, ∈[1.00,1.00]), \n  j=f32[1,1,4,5](μ=1.00, σ=0.00, ∈[1.00,1.00]), \n  l=a(b=1, c=2), \n  m=f32[5,5](μ=1.00, σ=0.00, ∈[1.00,1.00]), \n  n=bool[], \n  o=c64[2]\n)"
     )
 
     assert (
         tree_repr(r1, depth=1)
         # trunk-ignore(flake8/E501)
-        == "Repr1(\n  a=1, \n  b=string, \n  c=1.0, \n  d=aaaaa, \n  e=[...], \n  f={...}, \n  g={...}, \n  h=f32[5,1](μ=1.00, σ=0.00, ∈[1.00,1.00]), \n  i=f32[1,6](μ=1.00, σ=0.00, ∈[1.00,1.00]), \n  j=f32[1,1,4,5](μ=1.00, σ=0.00, ∈[1.00,1.00]), \n  l=a(...), \n  m=f32[5,5](μ=1.00, σ=0.00, ∈[1.00,1.00]), \n  n=bool[], \n  o=c64[2]\n)"
+        == "Repr1(\n  a=1, \n  b=string, \n  c=1.0, \n  d=aaaaa, \n  e=[...], \n  f={...}, \n  g=dict(...), \n  h=f32[5,1](μ=1.00, σ=0.00, ∈[1.00,1.00]), \n  i=f32[1,6](μ=1.00, σ=0.00, ∈[1.00,1.00]), \n  j=f32[1,1,4,5](μ=1.00, σ=0.00, ∈[1.00,1.00]), \n  l=a(...), \n  m=f32[5,5](μ=1.00, σ=0.00, ∈[1.00,1.00]), \n  n=bool[], \n  o=c64[2]\n)"
     )
 
     assert tree_repr(r1, depth=0) == "Repr1(...)"
@@ -124,13 +124,13 @@ def test_str():
     assert (
         tree_str(r1)
         # trunk-ignore(flake8/E501)
-        == "Repr1(\n  a=1, \n  b=string, \n  c=1.0, \n  d=aaaaa, \n  e=[10, 10, 10, 10, 10], \n  f={1, 2, 3}, \n  g={\n    a:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa, \n    b:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb, \n    c:[[1. 1. 1. 1. 1.]\n     [1. 1. 1. 1. 1.]\n     [1. 1. 1. 1. 1.]\n     [1. 1. 1. 1. 1.]\n     [1. 1. 1. 1. 1.]]\n  }, \n  h=[[1.] [1.] [1.] [1.] [1.]], \n  i=[[1. 1. 1. 1. 1. 1.]], \n  j=[[[[1. 1. 1. 1. 1.]   [1. 1. 1. 1. 1.]   [1. 1. 1. 1. 1.]   [1. 1. 1. 1. 1.]]]], \n  l=a(b=1, c=2), \n  m=[[1. 1. 1. 1. 1.]\n   [1. 1. 1. 1. 1.]\n   [1. 1. 1. 1. 1.]\n   [1. 1. 1. 1. 1.]\n   [1. 1. 1. 1. 1.]], \n  n=True, \n  o=[1.+0.j 2.+0.j]\n)"
+        == "Repr1(\n  a=1, \n  b=string, \n  c=1.0, \n  d=aaaaa, \n  e=[10, 10, 10, 10, 10], \n  f={1, 2, 3}, \n  g=dict(\n    a=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa, \n    b=bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb, \n    c=[[1. 1. 1. 1. 1.]\n     [1. 1. 1. 1. 1.]\n     [1. 1. 1. 1. 1.]\n     [1. 1. 1. 1. 1.]\n     [1. 1. 1. 1. 1.]]\n  ), \n  h=[[1.] [1.] [1.] [1.] [1.]], \n  i=[[1. 1. 1. 1. 1. 1.]], \n  j=[[[[1. 1. 1. 1. 1.]   [1. 1. 1. 1. 1.]   [1. 1. 1. 1. 1.]   [1. 1. 1. 1. 1.]]]], \n  l=a(b=1, c=2), \n  m=[[1. 1. 1. 1. 1.]\n   [1. 1. 1. 1. 1.]\n   [1. 1. 1. 1. 1.]\n   [1. 1. 1. 1. 1.]\n   [1. 1. 1. 1. 1.]], \n  n=True, \n  o=[1.+0.j 2.+0.j]\n)"
     )
 
     assert (
         tree_str(r1, depth=1)
         # trunk-ignore(flake8/E501)
-        == "Repr1(\n  a=1, \n  b=string, \n  c=1.0, \n  d=aaaaa, \n  e=[...], \n  f={...}, \n  g={...}, \n  h=[[1.] [1.] [1.] [1.] [1.]], \n  i=[[1. 1. 1. 1. 1. 1.]], \n  j=[[[[1. 1. 1. 1. 1.]   [1. 1. 1. 1. 1.]   [1. 1. 1. 1. 1.]   [1. 1. 1. 1. 1.]]]], \n  l=a(...), \n  m=[[1. 1. 1. 1. 1.]\n   [1. 1. 1. 1. 1.]\n   [1. 1. 1. 1. 1.]\n   [1. 1. 1. 1. 1.]\n   [1. 1. 1. 1. 1.]], \n  n=True, \n  o=[1.+0.j 2.+0.j]\n)"
+        == "Repr1(\n  a=1, \n  b=string, \n  c=1.0, \n  d=aaaaa, \n  e=[...], \n  f={...}, \n  g=dict(...), \n  h=[[1.] [1.] [1.] [1.] [1.]], \n  i=[[1. 1. 1. 1. 1. 1.]], \n  j=[[[[1. 1. 1. 1. 1.]   [1. 1. 1. 1. 1.]   [1. 1. 1. 1. 1.]   [1. 1. 1. 1. 1.]]]], \n  l=a(...), \n  m=[[1. 1. 1. 1. 1.]\n   [1. 1. 1. 1. 1.]\n   [1. 1. 1. 1. 1.]\n   [1. 1. 1. 1. 1.]\n   [1. 1. 1. 1. 1.]], \n  n=True, \n  o=[1.+0.j 2.+0.j]\n)"
     )
 
 
@@ -160,7 +160,7 @@ def test_tree_diagram():
     assert tree_diagram(r1, depth=0) == "Repr1(...)"
 
     # trunk-ignore(flake8/E501)
-    out = "Repr1\n├── .a=1\n├── .b=string\n├── .c=1.0\n├── .d=aaaaa\n├── .e=[...]\n├── .f={...}\n├── .g={...}\n├── .h=f32[5,1](μ=1.00, σ=0.00, ∈[1.00,1.00])\n├── .i=f32[1,6](μ=1.00, σ=0.00, ∈[1.00,1.00])\n├── .j=f32[1,1,4,5](μ=1.00, σ=0.00, ∈[1.00,1.00])\n├── .k=(...)\n├── .l=a(...)\n├── .m=f32[5,5](μ=1.00, σ=0.00, ∈[1.00,1.00])\n├── .n=bool[]\n└── .o=c64[2]"
+    out = "Repr1\n├── .a=1\n├── .b=string\n├── .c=1.0\n├── .d=aaaaa\n├── .e=[...]\n├── .f={...}\n├── .g=dict(...)\n├── .h=f32[5,1](μ=1.00, σ=0.00, ∈[1.00,1.00])\n├── .i=f32[1,6](μ=1.00, σ=0.00, ∈[1.00,1.00])\n├── .j=f32[1,1,4,5](μ=1.00, σ=0.00, ∈[1.00,1.00])\n├── .k=(...)\n├── .l=a(...)\n├── .m=f32[5,5](μ=1.00, σ=0.00, ∈[1.00,1.00])\n├── .n=bool[]\n└── .o=c64[2]"
 
     assert tree_diagram(r1, depth=1) == out
 
@@ -170,7 +170,7 @@ def test_tree_mermaid():
     assert (
         re.sub(r"id\d*", "***", tree_mermaid(r1, depth=1))
         # trunk-ignore(flake8/E501)
-        == 'flowchart LR\n    ***("<b>Repr1</b>")\n    *** --- ***("<b>.a=1</b>")\n    *** --- ***("<b>.b=string</b>")\n    *** --- ***("<b>.c=1.0</b>")\n    *** --- ***("<b>.d=aaaaa</b>")\n    *** --- ***("<b>.e=[...]</b>")\n    *** --- ***("<b>.f={...}</b>")\n    *** --- ***("<b>.g={...}</b>")\n    *** --- ***("<b>.h=f32[5,1](μ=1.00, σ=0.00, ∈[1.00,1.00])</b>")\n    *** --- ***("<b>.i=f32[1,6](μ=1.00, σ=0.00, ∈[1.00,1.00])</b>")\n    *** --- ***("<b>.j=f32[1,1,4,5](μ=1.00, σ=0.00, ∈[1.00,1.00])</b>")\n    *** --- ***("<b>.k=(...)</b>")\n    *** --- ***("<b>.l=a(...)</b>")\n    *** --- ***("<b>.m=f32[5,5](μ=1.00, σ=0.00, ∈[1.00,1.00])</b>")\n    *** --- ***("<b>.n=bool[]</b>")\n    *** --- ***("<b>.o=c64[2]</b>")'
+        == 'flowchart LR\n    ***("<b>Repr1</b>")\n    *** --- ***("<b>.a=1</b>")\n    *** --- ***("<b>.b=string</b>")\n    *** --- ***("<b>.c=1.0</b>")\n    *** --- ***("<b>.d=aaaaa</b>")\n    *** --- ***("<b>.e=[...]</b>")\n    *** --- ***("<b>.f={...}</b>")\n    *** --- ***("<b>.g=dict(...)</b>")\n    *** --- ***("<b>.h=f32[5,1](μ=1.00, σ=0.00, ∈[1.00,1.00])</b>")\n    *** --- ***("<b>.i=f32[1,6](μ=1.00, σ=0.00, ∈[1.00,1.00])</b>")\n    *** --- ***("<b>.j=f32[1,1,4,5](μ=1.00, σ=0.00, ∈[1.00,1.00])</b>")\n    *** --- ***("<b>.k=(...)</b>")\n    *** --- ***("<b>.l=a(...)</b>")\n    *** --- ***("<b>.m=f32[5,5](μ=1.00, σ=0.00, ∈[1.00,1.00])</b>")\n    *** --- ***("<b>.n=bool[]</b>")\n    *** --- ***("<b>.o=c64[2]</b>")'
     )
     assert (
         re.sub(r"id\d*", "***", tree_mermaid(r1, depth=2))
@@ -261,3 +261,18 @@ def test_tree_graph():
         re.sub(r"\b\d{10,}", "***", tree_graph(r1))
         == 'digraph G {\n    *** [label="Repr1", shape=box];\n    *** [label=".a=1", shape=box];\n    *** -> ***;\n    *** [label=".b=string", shape=box];\n    *** -> ***;\n    *** [label=".c=1.0", shape=box];\n    *** -> ***;\n    *** [label=".d=aaaaa", shape=box];\n    *** -> ***;\n    *** [label=".e:list", shape=box];\n    *** -> ***;\n    *** [label="[0]=10", shape=box];\n    *** -> ***;\n    *** [label="[1]=10", shape=box];\n    *** -> ***;\n    *** [label="[2]=10", shape=box];\n    *** -> ***;\n    *** [label="[3]=10", shape=box];\n    *** -> ***;\n    *** [label="[4]=10", shape=box];\n    *** -> ***;\n    *** [label=".f={...}", shape=box];\n    *** -> ***;\n    *** [label=".g:dict", shape=box];\n    *** -> ***;\n    *** [label="[\'a\']=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", shape=box];\n    *** -> ***;\n    *** [label="[\'b\']=bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb", shape=box];\n    *** -> ***;\n    *** [label="[\'c\']=f32[5,5](μ=1.00, σ=0.00, ∈[1.00,1.00])", shape=box];\n    *** -> ***;\n    *** [label=".h=f32[5,1](μ=1.00, σ=0.00, ∈[1.00,1.00])", shape=box];\n    *** -> ***;\n    *** [label=".i=f32[1,6](μ=1.00, σ=0.00, ∈[1.00,1.00])", shape=box];\n    *** -> ***;\n    *** [label=".j=f32[1,1,4,5](μ=1.00, σ=0.00, ∈[1.00,1.00])", shape=box];\n    *** -> ***;\n    *** [label=".k:tuple", shape=box];\n    *** -> ***;\n    *** [label="[0]=1", shape=box];\n    *** -> ***;\n    *** [label="[1]=2", shape=box];\n    *** -> ***;\n    *** [label="[2]=3", shape=box];\n    *** -> ***;\n    *** [label=".l:a", shape=box];\n    *** -> ***;\n    *** [label=".b=1", shape=box];\n    *** -> ***;\n    *** [label=".c=2", shape=box];\n    *** -> ***;\n    *** [label=".m=f32[5,5](μ=1.00, σ=0.00, ∈[1.00,1.00])", shape=box];\n    *** -> ***;\n    *** [label=".n=bool[]", shape=box];\n    *** -> ***;\n    *** [label=".o=c64[2]", shape=box];\n    *** -> ***;\n}'
     )
+
+
+@pytest.mark.skipif(backend != "jax", reason="jax is not installed")
+def test_tracer_repr():
+    import jax
+
+    @jax.jit
+    def f(x):
+        out = tree_repr(x)
+        assert out == "Tracer(f32[10,10])"
+        out = tree_str(x)
+        assert out == "Tracer(f32[10,10])"
+        return x
+
+    f(jax.numpy.ones((10, 10)))

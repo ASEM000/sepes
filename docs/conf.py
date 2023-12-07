@@ -109,16 +109,12 @@ html_theme_options = {
     },
 }
 
+html_css_files = ["custom.css"]
 
 # -- Options for doctest -----------------------------------------------------
 
 doctest_test_doctest_blocks = "true"
-doctest_global_setup = """
-import jax
-import os
-import jax.numpy as jnp
-import sepes
-"""
+doctest_global_setup = """"""
 doctest_default_flags = (
     doctest.ELLIPSIS
     | doctest.IGNORE_EXCEPTION_DETAIL

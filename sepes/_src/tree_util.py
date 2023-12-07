@@ -175,10 +175,10 @@ def bcmap(
         >>> tree_add = sp.bcmap(jnp.add)
         >>> # both lhs and rhs are pytrees
         >>> print(sp.tree_str(tree_add(tree_of_arrays, tree_of_arrays)))
-        {a:[2 4 6], b:[ 8 10 12]}
+        dict(a=[2 4 6], b=[ 8 10 12])
         >>> # rhs is a scalar
         >>> print(sp.tree_str(tree_add(tree_of_arrays, 1)))
-        {a:[2 3 4], b:[5 6 7]}
+        dict(a=[2 3 4], b=[5 6 7])
     """
     # add broadcasting argnum/argname to the function later
     treelib = sepes._src.backend.treelib

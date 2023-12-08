@@ -50,18 +50,6 @@ arg_kinds: tuple[str, ...] = get_args(KindType)
 EXCLUDED_FIELD_NAMES: set[str] = {"self", "__post_init__", "__annotations__"}
 
 
-@ft.singledispatch
-def excluded_type_dispatcher(value: T) -> None:
-    ...
-
-
-@excluded_type_dispatcher.register(MutableSequence)
-@excluded_type_dispatcher.register(MutableMapping)
-@excluded_type_dispatcher.register(MutableSet)
-def _(value) -> None:
-    raise TypeError(f"Mutable {value=} is not allowed.")
-
-
 class Null:
     __slots__ = []
     __repr__ = lambda _: "NULL"
@@ -660,6 +648,9 @@ def autoinit(klass: type[T]) -> type[T]:
     return build_init_method(convert_hints_to_fields(klass))
 
 
+excluded_type_dispatcher = ft.singledispatch(lambda _: None)
+
+
 def register_excluded_type(klass: type, reason: str | None = None) -> None:
     """Exclude a type from being used in the ``autoinit`` decorator.
 
@@ -675,3 +666,6 @@ def register_excluded_type(klass: type, reason: str | None = None) -> None:
 
 
 autoinit.register_excluded_type = register_excluded_type
+autoinit.register_excluded_type(MutableMapping, reason="mutable type")
+autoinit.register_excluded_type(MutableSequence, reason="mutable type")
+autoinit.register_excluded_type(MutableSet, reason="mutable type")

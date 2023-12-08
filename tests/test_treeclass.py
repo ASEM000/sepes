@@ -657,3 +657,12 @@ def test_unannotated_field():
         a = field(default=1)
 
     assert str(T.a.type) == "NULL"
+
+
+def test_class_var():
+    @autoinit
+    class T:
+        a: int = field(default=1, kind="CLASS_VAR")
+        b: int = 2
+
+    assert T.a == 1

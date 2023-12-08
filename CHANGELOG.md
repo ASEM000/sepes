@@ -4,6 +4,10 @@
 
 - No freezing rule for `jax.Tracer` in `sp.freeze`
 - Add pprint rule `jax.Tracer` in `sp.tree_repr`/`sp.tree_str`
+- Add no-op warning if user adds `autoinit` to class with `__init__` method.
+- Add warning if user add fields in incorrect kind order.
+- Add warning if any bases of autoinit has `__init__` method.
+- Add `CLASS_VAR` kind in `field` to support class variables in `autoinit`.
 
 ## V0.11.1
 

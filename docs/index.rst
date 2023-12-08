@@ -10,14 +10,8 @@ Install from pip::
 
 
 .. toctree::
-   :caption: User guides
-   :maxdepth: 1
-
-   notebooks/common_recipes
-
-.. toctree::
     :caption: API Documentation
-    :maxdepth: 1
+    :maxdepth: 2
     
     API/sepes
 

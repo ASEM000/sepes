@@ -20,7 +20,6 @@ import dataclasses as dc
 import functools as ft
 import inspect
 import math
-from contextlib import suppress
 from itertools import zip_longest
 from math import prod
 from types import FunctionType
@@ -205,7 +204,8 @@ def _(node: set, **spec: Unpack[PPSpec]) -> str:
 
 @tree_str.def_type(dict)
 def _(node: dict, **spec: Unpack[PPSpec]) -> str:
-    return "{" + tree_str.pps(tree_str.kv_pp, node.items(), **spec) + "}"
+    name = type(node).__name__
+    return name + "(" + tree_str.pps(tree_str.av_pp, node.items(), **spec) + ")"
 
 
 @tree_repr.def_type(str)
@@ -229,23 +229,13 @@ for ndarray in arraylib.ndarrays:
         # Extended repr for numpy array, with extended information
         # this part of the function is inspired by
         # lovely-jax https://github.com/xl0/lovely-jax
-
-        with suppress(Exception):
-            # maybe the array is a jax tracers
-            low, high = arraylib.min(node), arraylib.max(node)
-            interval = "(" if math.isinf(low) else "["
-            interval += (
-                f"{low},{high}"
-                if arraylib.is_integer(node)
-                else f"{low:.2f},{high:.2f}"
-            )
-            interval += ")" if math.isinf(high) else "]"
-            interval = interval.replace("inf", "∞")
-
-            mean, std = f"{arraylib.mean(node):.2f}", f"{arraylib.std(node):.2f}"
-            return f"{base}(μ={mean}, σ={std}, ∈{interval})"
-
-        return base
+        L, H = arraylib.min(node), arraylib.max(node)
+        interval = "(" if math.isinf(L) else "["
+        interval += f"{L},{H}" if arraylib.is_integer(node) else f"{L:.2f},{H:.2f}"
+        interval += ")" if math.isinf(H) else "]"
+        interval = interval.replace("inf", "∞")
+        mean, std = f"{arraylib.mean(node):.2f}", f"{arraylib.std(node):.2f}"
+        return f"{base}(μ={mean}, σ={std}, ∈{interval})"
 
 
 @tree_repr.def_type(ft.partial)
@@ -274,7 +264,8 @@ def _(node: set, **spec: Unpack[PPSpec]) -> str:
 
 @tree_repr.def_type(dict)
 def _(node: dict, **spec: Unpack[PPSpec]) -> str:
-    return "{" + tree_repr.pps(tree_repr.kv_pp, node.items(), **spec) + "}"
+    name = type(node).__name__
+    return name + "(" + tree_repr.pps(tree_repr.av_pp, node.items(), **spec) + ")"
 
 
 def tree_diagram(
@@ -558,13 +549,13 @@ def tree_summary(
         String summary of the tree structure:
             - First column: path to the node.
             - Second column: type of the node. to control the displayed type use
-                `tree_summary.def_type(type, func)` to define a custom type display function.
+              ``tree_summary.def_type(type, func)`` to define a custom type display function.
             - Third column: number of leaves in the node. for arrays the number of leaves
-                is the number of elements in the array, otherwise its 1. to control the
-                number of leaves of a node use `tree_summary.def_count(type,func)`
+              is the number of elements in the array, otherwise its 1. to control the
+              number of leaves of a node use ``tree_summary.def_count(type,func)``
             - Fourth column: size of the node in bytes. if the node is array the size
-                is the size of the array in bytes, otherwise its the size is not displayed.
-                to control the size of a node use `tree_summary.def_size(type,func)`
+              is the size of the array in bytes, otherwise its the size is not displayed.
+              to control the size of a node use ``tree_summary.def_size(type,func)``
             - Last row: type of parent, number of leaves of the parent
 
     Example:
@@ -726,3 +717,14 @@ if is_package_avaiable("jax"):
         # so we need to handle it here
         node = getattr(node, "__wrapped__", "<unknown>")
         return "jit(" + tree_repr.dispatch(node, **spec) + ")"
+
+    # without this rule, Tracer will be handled by the array handler
+    # that display min/max/mean/std of the array.However `Tracer` does not
+    # have these attributes so this will cause an error upon calculation.
+    @tree_repr.def_type(jax.core.Tracer)
+    @tree_str.def_type(jax.core.Tracer)
+    def _(node, **spec: Unpack[PPSpec]) -> str:
+        shape = node.aval.shape
+        dtype = node.aval.dtype
+        string = tree_repr.dispatch(ShapeDTypePP(shape, dtype), **spec)
+        return f"Tracer({string})"

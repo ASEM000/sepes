@@ -1,4 +1,4 @@
-💼 Masking API
+🥽 Masking API
 ----------------------------------------------
 
 .. currentmodule:: sepes 

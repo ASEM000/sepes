@@ -14,14 +14,17 @@
 
 """Constructor code generation from type annotations."""
 
-# this modules contains lots of functionality similar to `dataclasses` and attrs.
+# this modules contains functionality to turn type hints into a constructor
+# similar to `dataclasses.dataclass`/`attrs`
 # however, notable differences are:
-# - allow marking fields as positional only, keyword only, variable positional,...
-# - allow applying functions on the field values during initialization using descriptors.
-# - does not allow mutable defaults.
-# - allow registering additional types to be excluded from `autoinit`. e.g. raise an error.
-# - only code generation is supported is done. other functionality like `__repr__`,
-#   `__eq__`, `__hash__`, esp. are not done here.
+# - Fields are not tied to the class decorator. i.e. `Field` can be used without `autoinit`.
+# - Fields enable running function callbacks on the field values during setting/getting.
+#   using descriptors and emit a descriptive error message in case of an error.
+# - Marking fields as positional only, keyword only, variable positional,...
+# - Does not allow mutable defaults.
+# - Registering additional types to be excluded from `autoinit`. e.g. raise an error.
+# - Only code generation is supported is done. other functionality like `__repr__`,
+#   `__eq__`, `__hash__`,are not supported.
 
 # one design choice is that `autoinit` and `Field` are not tightly coupled.
 # Field` can be used without `autoinit` as a descriptor to apply functions on
@@ -36,27 +39,15 @@ import sys
 from collections import defaultdict
 from collections.abc import Callable, MutableMapping, MutableSequence, MutableSet
 from typing import Any, Literal, Sequence, TypeVar, get_args
-
+from warnings import warn
 from typing_extensions import dataclass_transform
 
 T = TypeVar("T")
 PyTree = Any
 EllipsisType = type(Ellipsis)
-ArgKindType = Literal["POS_ONLY", "POS_OR_KW", "VAR_POS", "KW_ONLY", "VAR_KW"]
-ArgKind = get_args(ArgKindType)
+KindType = Literal["POS_ONLY", "POS_OR_KW", "VAR_POS", "KW_ONLY", "VAR_KW", "CLASS_VAR"]
+arg_kinds: tuple[str, ...] = get_args(KindType)
 EXCLUDED_FIELD_NAMES: set[str] = {"self", "__post_init__", "__annotations__"}
-
-
-@ft.singledispatch
-def check_excluded_type(value: T) -> None:
-    ...
-
-
-@check_excluded_type.register(MutableSequence)
-@check_excluded_type.register(MutableMapping)
-@check_excluded_type.register(MutableSet)
-def _(value) -> None:
-    raise TypeError(f"Mutable {value=} is not allowed.")
 
 
 class Null:
@@ -93,30 +84,7 @@ def slots(klass) -> tuple[str, ...]:
 
 
 class Field:
-    """Field descriptor placeholder
-
-    Args:
-        name: The field name.
-        type: The field type.
-        default: The default value of the field.
-        init: Whether the field is included in the object's ``__init__`` function.
-        repr: Whether the field is included in the object's ``__repr__`` function.
-        kind: Argument kind, one of:
-
-            - ``POS_ONLY``: positional only argument (e.g. ``x`` in ``def f(x, /):``)
-            - ``VAR_POS``: variable positional argument (e.g. ``*x`` in ``def f(*x):``)
-            - ``POS_OR_KW``: positional or keyword argument (e.g. ``x`` in ``def f(x):``)
-            - ``KW_ONLY``: keyword only argument (e.g. ``x`` in ``def f(*, x):``)
-            - ``VAR_KW``: variable keyword argument (e.g. ``**x`` in ``def f(**x):``)
-
-        metadata: A mapping of user-defined data for the field.
-        on_setattr: A sequence of functions called on ``__setattr__``.
-        on_getattr: A sequence of functions called on ``__getattr__``.
-        alias: An a alias for the field name in the constructor. e.g ``name=x``,
-            ``alias=y`` will allow ``obj = Class(y=1)`` to be equivalent to
-            ``obj = Class(x=1)``.
-        doc: The field documentation.
-    """
+    """Field descriptor placeholder"""
 
     __slots__ = [
         "name",
@@ -140,7 +108,7 @@ class Field:
         default: Any = NULL,
         init: bool = True,
         repr: bool = True,
-        kind: ArgKind = "POS_OR_KW",
+        kind: KindType = "POS_OR_KW",
         metadata: dict[str, Any] | None = None,
         on_setattr: Sequence[Callable[[Any], Any]] = (),
         on_getattr: Sequence[Callable[[Any], Any]] = (),
@@ -215,7 +183,7 @@ def field(
     default: Any = NULL,
     init: bool = True,
     repr: bool = True,
-    kind: ArgKindType = "POS_OR_KW",
+    kind: KindType = "POS_OR_KW",
     metadata: dict[str, Any] | None = None,  # type: ignore
     on_setattr: Sequence[Any] = (),
     on_getattr: Sequence[Any] = (),
@@ -228,13 +196,14 @@ def field(
         default: The default value of the field.
         init: Whether the field is included in the object's ``__init__`` function.
         repr: Whether the field is included in the object's ``__repr__`` function.
-        kind: Argument kind, one of:
+        kind: Argument kind used in the constructor sythesis with :func:`autoinit`,
 
             - ``POS_ONLY``: positional only argument (e.g. ``x`` in ``def f(x, /):``)
             - ``VAR_POS``: variable positional argument (e.g. ``*x`` in ``def f(*x):``)
             - ``POS_OR_KW``: positional or keyword argument (e.g. ``x`` in ``def f(x):``)
             - ``KW_ONLY``: keyword only argument (e.g. ``x`` in ``def f(*, x):``)
             - ``VAR_KW``: variable keyword argument (e.g. ``**x`` in ``def f(**x):``)
+            - ``CLASS_VAR``: Non-constructor class variable (e.g. ``x`` in ``class C: x = 1``)
 
         metadata: A mapping of user-defined data for the field.
         on_setattr: A sequence of functions to called on ``__setattr__``.
@@ -252,8 +221,11 @@ def field(
                 >>> import sepes as sp
                 >>> @sp.autoinit
                 ... class Tree:
-                ...    leaf: int = sp.field(default=1, doc="Leaf node of the tree.", on_setattr=[lambda x:x])
-
+                ...     leaf: int = sp.field(
+                ...         default=1,
+                ...         doc="Leaf node of the tree.",
+                ...         on_setattr=[lambda x: x],
+                ... )
                 >>> print(Tree.leaf.__doc__)  # doctest: +SKIP
                 Field Information:
                         Name:           ``leaf``
@@ -364,8 +336,8 @@ def field(
     if not isinstance(metadata, (dict, type(None))):
         raise TypeError(f"Non-dict {metadata=} argument provided to `field`")
 
-    if kind not in ArgKind:
-        raise ValueError(f"{kind=} not in {ArgKind}")
+    if kind not in arg_kinds:
+        raise ValueError(f"{kind=} not in {arg_kinds}")
 
     if not isinstance(on_setattr, Sequence):
         raise TypeError(f"Non-sequence {on_setattr=} argument provided to `field`")
@@ -398,7 +370,7 @@ def field(
 
 
 def build_field_map(klass: type) -> dict[str, Field]:
-    field_map: dict[str, Field] = dict()
+    field_map: dict[KindType, Field] = dict()
 
     if klass is object:
         return dict(field_map)
@@ -407,26 +379,16 @@ def build_field_map(klass: type) -> dict[str, Field]:
         field_map.update(build_field_map(base))
 
     if (hint_map := vars(klass).get("__annotations__", NULL)) is NULL:
+        # not annotated
         return dict(field_map)
 
     if EXCLUDED_FIELD_NAMES.intersection(hint_map):
-        raise ValueError(f"`Field` name cannot be in {EXCLUDED_FIELD_NAMES}")
+        raise ValueError(f"`Field` in {EXCLUDED_FIELD_NAMES=}")
 
     for key, hint in hint_map.items():
-        # get the current base key
-        value = vars(klass).get(key, NULL)
-
-        if not isinstance(value, Field):
-            # non-`Field` annotation is ignored
-            # non-autoinit base class type hints are ignored
-            continue
-
-        # in case the user uses mutable defaults or any other user-defined
-        # excluded types, raise an error
-        check_excluded_type(value.default)
-
-        # case: `x: Any = field(default=1)`
-        field_map[key] = value.replace(name=key, type=hint)
+        if isinstance(value := vars(klass).get(key, NULL), Field):
+            # case: `x: Any = field(default=1)`
+            field_map[key] = value.replace(name=key, type=hint)
 
     return field_map
 
@@ -446,31 +408,63 @@ def fields(x: Any) -> tuple[Field, ...]:
 
 
 def convert_hints_to_fields(klass: type[T]) -> type[T]:
-    # convert klass hints to `Field` objects for the current decorated class
+    # convert klass hints to `Field` objects for the **current** class
     if (hint_map := vars(klass).get("__annotations__", NULL)) is NULL:
+        # in case no type hints are provided, return the class as is
         return klass
 
     for key, hint in hint_map.items():
-        if not isinstance(value := vars(klass).get(key, NULL), Field):
-            setattr(klass, key, Field(default=value, type=hint, name=key))
+        if isinstance(value := vars(klass).get(key, NULL), Field):
+            if value.kind == "CLASS_VAR":
+                setattr(klass, key, value.default)
+            continue
+        # no need to convert `Field` annotated attributes again
+        setattr(klass, key, Field(default=value, type=hint, name=key))
     return klass
 
 
-def check_duplicate_var_kind(field_map: dict[str, Field]) -> None:
+def check_excluded_types(field_map: dict[KindType, Field]) -> dict[KindType, Field]:
+    # check if the user uses excluded types in `autoinit`
+    # like mutable types
+    for key in field_map:
+        excluded_type_dispatcher(field_map[key].default)
+    return field_map
+
+
+def check_duplicate_var_kind(field_map: dict[KindType, Field]) -> dict[KindType, Field]:
     # check for duplicate `VAR_POS` and `VAR_KW` arguments
     seen: set[Literal["VAR_POS", "VAR_KW"]] = set()
     for field in field_map.values():
         if field.kind in ("VAR_POS", "VAR_KW"):
-            # disallow multiple `VAR_POS` and `VAR_KW` arguments
-            # for example more than one field(kind="VAR_POS") is not allowed
             if field.kind in seen:
                 raise TypeError(f"Duplicate {field.kind=} for {field.name=}")
             seen.add(field.kind)
+    return field_map
+
+
+def check_order_of_args(field_map: dict[KindType, Field]) -> dict[KindType, Field]:
+    # check if the order of the arguments is valid
+    # otherwise raise a warning to the user to acknowledge the change
+    # in the order of the arguments
+    # for reference `dataclasses.dataclass` does not warn the user before
+    # reordering the arguments
+    seen: list[KindType] = []
+    for key in field_map:
+        if field_map[key].kind == "CLASS_VAR":
+            continue
+        seen += [field_map[key].kind]
+        if len(seen) > 1 and arg_kinds.index(seen[-2]) > arg_kinds.index(seen[-1]):
+            warn(f"Kind order {seen} order != {arg_kinds} and will be reordered.")
+    return field_map
 
 
 def build_init_method(klass: type[T]) -> type[T]:
-    field_map: dict[str, Field] = build_field_map(klass)
-    check_duplicate_var_kind(field_map)
+    field_map: dict[KindType, Field] = build_field_map(klass)
+
+    field_map = check_excluded_types(field_map)
+    field_map = check_duplicate_var_kind(field_map)
+    field_map = check_order_of_args(field_map)
+
     hints = {"return": None}  # annotations
 
     body: list[str] = []
@@ -478,6 +472,9 @@ def build_init_method(klass: type[T]) -> type[T]:
     heads: dict[str, list[str]] = defaultdict(list)
 
     for field in field_map.values():
+        if field.kind == "CLASS_VAR":
+            continue
+
         if field.init:
             # add to field to head and body
             hints[field.name] = field.type
@@ -498,8 +495,9 @@ def build_init_method(klass: type[T]) -> type[T]:
                 # usaully declared in __post_init__
                 body += [f"self.{field.name}=refmap['{field.name}'].default"]
 
-    has_post = (key := "__post_init__") in vars(klass)
-    body += [f"self.{key}()"] if has_post else ["pass"]
+    # add pass in case all fields are not included in the constructor
+    # i.e. `init=False` for all fields
+    body += [f"self.{key}()"] if (key := "__post_init__") in vars(klass) else ["pass"]
 
     # organize the arguments order:
     # (POS_ONLY, POS_OR_KW, VAR_POS, KW_ONLY, VAR_KW)
@@ -632,16 +630,25 @@ def autoinit(klass: type[T]) -> type[T]:
         Traceback (most recent call last):
             ...
     """
-    return (
-        klass
+
+    if "__init__" in vars(klass):
         # if the class already has a user-defined __init__ method
         # then return the class as is without any modification
-        if "__init__" in vars(klass)
-        # first convert the current class hints to fields
-        # then build the __init__ method from the fields of the current class
-        # and any base classes that are decorated with `autoinit`
-        else build_init_method(convert_hints_to_fields(klass))
-    )
+        warn(f"autoinit({klass.__name__}) with `__init__` is a no-op")
+        return klass
+
+    for base in klass.__mro__[1:-1]:
+        # skip the current and object class
+        if "__init__" in vars(base):
+            warn(f"autoinit({klass.__name__}) skips base class {base.__name__} hints")
+
+    # first convert the current class hints to fields
+    # then build the __init__ method from the fields of the current class
+    # and any base classes that are decorated with `autoinit`
+    return build_init_method(convert_hints_to_fields(klass))
+
+
+excluded_type_dispatcher = ft.singledispatch(lambda _: None)
 
 
 def register_excluded_type(klass: type, reason: str | None = None) -> None:
@@ -653,9 +660,12 @@ def register_excluded_type(klass: type, reason: str | None = None) -> None:
     """
     reason = f" {reason=}" if reason is not None else ""
 
-    @check_excluded_type.register(klass)
+    @excluded_type_dispatcher.register(klass)
     def _(value) -> None:
         raise TypeError(f"{value=} is excluded from `autoinit`.{reason}")
 
 
 autoinit.register_excluded_type = register_excluded_type
+autoinit.register_excluded_type(MutableMapping, reason="mutable type")
+autoinit.register_excluded_type(MutableSequence, reason="mutable type")
+autoinit.register_excluded_type(MutableSet, reason="mutable type")

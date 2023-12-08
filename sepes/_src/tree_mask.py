@@ -414,3 +414,17 @@ def tree_unmask(tree: T, mask: MaskType = lambda _: True):
             >>> tree = jax.tree_map(sp.unfreeze, tree, is_leaf=sp.is_frozen)
     """
     return _tree_mask_map(tree, mask=mask, func=unfreeze, is_leaf=is_frozen)
+
+
+from sepes._src.backend import is_package_avaiable
+
+if is_package_avaiable("jax"):
+    import jax
+
+    # do not touch jax.core.Tracer instances.
+    # otherwise calling `freeze` inside a jax transformation on
+    # a tracer will hide the tracer from jax and will cause leaked tracer
+    # error.
+    @freeze.def_type(jax.core.Tracer)
+    def _(value: jax.core.Tracer) -> jax.core.Tracer:
+        return value

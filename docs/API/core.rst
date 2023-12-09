@@ -7,8 +7,8 @@
 .. autoclass:: TreeClass 
     :members:
         at
-
 .. autoclass:: Partial
+.. autoclass:: partial
 .. autoclass:: AtIndexer
     :members:
         get,
@@ -17,15 +17,15 @@
         scan,
         reduce,
         pluck,
-        __call__
-        
+
+.. autoclass:: at
 .. autoclass:: BaseKey
     :members:
         __eq__
-
 .. autofunction:: autoinit
 .. autofunction:: leafwise
 .. autofunction:: field
 .. autofunction:: fields
 .. autofunction:: bcmap
 .. autofunction:: is_tree_equal
+.. autofunction:: value_and_tree

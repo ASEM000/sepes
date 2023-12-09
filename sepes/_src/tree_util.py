@@ -18,10 +18,11 @@ from __future__ import annotations
 
 import functools as ft
 import operator as op
-from copy import copy
+import copy
 from math import ceil, floor, trunc
 from typing import Any, Callable, Hashable, Iterator, Sequence, Tuple, TypeVar, Generic
 import sepes._src.backend.arraylib as arraylib
+from sepes._src.backend import is_package_avaiable
 from typing_extensions import ParamSpec
 import sepes
 
@@ -47,8 +48,22 @@ def tree_hash(*trees: PyTree) -> int:
 
 def tree_copy(tree: T) -> T:
     """Return a copy of the tree."""
+    # the dispatcher calls copy on the leaves of the tree
+    # by default as an extra measure - beside flatten/unflatten-
+    # to ensure that the tree is copied completely
     treelib = sepes._src.backend.treelib
-    return treelib.tree_map(lambda x: copy(x), tree)
+    types = tuple(set(tree_copy.copy_dispatcher.registry) - {object})
+
+    def is_leaf(node) -> bool:
+        return isinstance(node, types)
+
+    return treelib.tree_map(tree_copy.copy_dispatcher, tree, is_leaf=is_leaf)
+
+
+# default behavior is to copy the tree elements except for registered types
+# like jax arrays which are immutable by default and should not be copied
+tree_copy.copy_dispatcher = ft.singledispatch(copy.copy)
+tree_copy.def_type = tree_copy.copy_dispatcher.register
 
 
 def is_array_like(node) -> bool:
@@ -133,26 +148,30 @@ class Partial(Static):
         - https://stackoverflow.com/a/7811270
     """
 
-    __slots__ = ["func", "args", "kwargs"]  # type: ignore
+    __slots__ = ["func", "args", "keywords"]  # type: ignore
 
     def __init__(self, func: Callable[..., Any], *args: Any, **kwargs: Any):
         self.func = func
         self.args = args
-        self.kwargs = kwargs
+        self.keywords = kwargs
 
     def __call__(self, *args: Any, **kwargs: Any) -> Any:
         iargs = iter(args)
         args = (next(iargs) if arg is ... else arg for arg in self.args)  # type: ignore
-        return self.func(*args, *iargs, **{**self.kwargs, **kwargs})
+        return self.func(*args, *iargs, **{**self.keywords, **kwargs})
 
     def __repr__(self) -> str:
-        return f"Partial({self.func}, {self.args}, {self.kwargs})"
+        return f"Partial({self.func}, {self.args}, {self.keywords})"
 
     def __hash__(self) -> int:
         return tree_hash(self)
 
     def __eq__(self, other: Any) -> bool:
         return is_tree_equal(self, other)
+
+
+# to match python
+partial = Partial
 
 
 def bcmap(
@@ -215,7 +234,7 @@ def bcmap(
 
         split_index = len(leaves) - len(kwargs_keys)
         all_leaves = []
-        bfunc = Partial(func, *cargs, **ckwargs)
+        bfunc = partial(func, *cargs, **ckwargs)
         for args_kwargs_values in zip(*leaves):
             args = args_kwargs_values[:split_index]
             kwargs = dict(zip(kwargs_keys, args_kwargs_values[split_index:]))
@@ -365,7 +384,7 @@ def leafwise(klass: type[T]) -> type[T]:
     return klass
 
 
-def tree_typed_path_leaves(
+def tree_type_path_leaves(
     tree: PyTree,
     *,
     is_leaf: Callable[[Any], bool] | None = None,
@@ -375,10 +394,10 @@ def tree_typed_path_leaves(
     _, atomicdef = treelib.tree_flatten(1)
 
     # mainly used for visualization
-    def flatten_one_level(typedpath: KeyTypePath, tree: PyTree):
+    def flatten_one_level(type_path: KeyTypePath, tree: PyTree):
         # predicate and type path
-        if (is_leaf and is_leaf(tree)) or (is_path_leaf and is_path_leaf(typedpath)):
-            yield typedpath, tree
+        if (is_leaf and is_leaf(tree)) or (is_path_leaf and is_path_leaf(type_path)):
+            yield type_path, tree
             return
 
         def one_level_is_leaf(node) -> bool:
@@ -391,11 +410,11 @@ def tree_typed_path_leaves(
         path_leaf, treedef = treelib.tree_path_flatten(tree, is_leaf=one_level_is_leaf)
 
         if treedef == atomicdef:
-            yield typedpath, tree
+            yield type_path, tree
             return
 
         for key, value in path_leaf:
-            keys, types = typedpath
+            keys, types = type_path
             path = ((*keys, *key), (*types, type(value)))
             yield from flatten_one_level(path, value)
 
@@ -453,10 +472,10 @@ def construct_tree(
     is_leaf: Callable[[Any], bool] | None = None,
     is_path_leaf: Callable[[KeyTypePath], bool] | None = None,
 ) -> Node:
-    # construct a tree with `Node` objects using `tree_typed_path_leaves`
+    # construct a tree with `Node` objects using `tree_type_path_leaves`
     # to establish parent-child relationship between nodes
 
-    traces_leaves = tree_typed_path_leaves(
+    traces_leaves = tree_type_path_leaves(
         tree,
         is_leaf=is_leaf,
         is_path_leaf=is_path_leaf,
@@ -480,3 +499,157 @@ def construct_tree(
                 cur.add_child(child)
                 cur = child
     return root
+
+
+def value_and_tree(func, argnums: int | Sequence[int] = 0):
+    """Call a function on copied input argument and return the value and the tree.
+
+    Input arguments are copied before calling the function, and the argument
+    specified by ``argnums`` are returned as a tree.
+
+    Args:
+        func: A function.
+        argnums: The argument number of the tree that will be returned. If multiple
+            arguments are specified, the tree will be returned as a tuple.
+
+    Returns:
+        A function that returns the value and the tree.
+
+    Example:
+        Usage with mutable types:
+
+        >>> import sepes as sp
+        >>> mutable_tree = [1, 2, 3]
+        >>> def mutating_func(tree):
+        ...     tree[0] += 100
+        ...     return tree
+        >>> new_tree = mutating_func(mutable_tree)
+        >>> assert new_tree is mutable_tree
+        >>> # now with `value_and_tree` the function does not mutate the tree
+        >>> new_tree, _ = sp.value_and_tree(mutating_func)(mutable_tree)
+        >>> assert new_tree is not mutable_tree
+
+    Example:
+        Usage with immutable types (:class:`.TreeClass`) with support for in-place
+        mutation via custom behavior registration using :func:`.value_and_tree.def_mutator`
+        and :func:`.value_and_tree.def_immutator`:
+
+        >>> import sepes as sp
+        >>> class Counter(sp.TreeClass):
+        ...     def __init__(self, count: int):
+        ...         self.count = count
+        ...     def increment(self, value):
+        ...         self.count += value
+        ...         return self.count
+        >>> counter = Counter(0)
+        >>> counter.increment(1)  # doctest: +SKIP
+        AttributeError: Cannot set attribute value=1 to `key='count'`  on an immutable instance of `Counter`.
+        >>> sp.value_and_tree(lambda counter: counter.increment(1))(counter)
+        (1, Counter(count=1))
+
+    Note:
+        Use this function on function that:
+
+        - Mutates the input arguments of mutable types (e.g. lists, dicts, etc.).
+        - Mutates the input arguments of immutable types that do not support in-place
+          mutation and needs special handling that can be registered (e.g. :class:`.TreeClass`)
+          using :func:`.value_and_tree.def_mutator` and :func:`.value_and_tree.def_immutator`.
+
+    Note:
+        The default behavior of :func:`value_and_tree` is to copy the input
+        arguments and then call the function on the copy. However if the function
+        mutates some of the input arguments that does not support in-place mutation,
+        then the function will fail. In this case, :func:`value_and_tree` enables
+        registering custom behavior that modifies the copied input argument to
+        allow in-place mutation. and custom function that restores the copied
+        argument to its original state after the method call. The following example
+        shows how to register custom functions for a simple class that allows
+        in-place mutation if ``immutable`` Flag is set to ``False``.
+
+        >>> import jax
+        >>> from jax.util import unzip2
+        >>> import sepes as sp
+        >>> @jax.tree_util.register_pytree_node_class
+        ... class MyNode:
+        ...     def __init__(self):
+        ...         self.counter = 0
+        ...         self.immutable = True
+        ...     def tree_flatten(self):
+        ...         keys, values = unzip2(vars(self).items())
+        ...         return tuple(values), tuple(keys)
+        ...     @classmethod
+        ...     def tree_unflatten(cls, keys, values):
+        ...         self = object.__new__(cls)
+        ...         vars(self).update(dict(zip(keys, values)))
+        ...         return self
+        ...     def __setattr__(self, name, value):
+        ...         if getattr(self, "immutable", False) is True:
+        ...             raise AttributeError("MyNode is immutable")
+        ...         object.__setattr__(self, name, value)
+        ...     def __repr__(self):
+        ...         params = ", ".join(f"{k}={v}" for k, v in vars(self).items())
+        ...         return f"MyNode({params})"
+        ...     def increment(self) -> None:
+        ...         self.counter += 1
+        >>> @sp.value_and_tree.def_mutator(MyNode)
+        ... def mutable(node) -> None:
+        ...     vars(node)["immutable"] = False
+        >>> @sp.value_and_tree.def_immutator(MyNode)
+        ... def immutable(node) -> None:
+        ...     vars(node)["immutable"] = True
+        >>> node = MyNode()
+        >>> sp.value_and_tree(lambda node: node.increment())(node)
+        (None, MyNode(counter=1, immutable=True))
+    """
+    treelib = sepes._src.backend.treelib
+    is_int_argnum = isinstance(argnums, int)
+    argnums = [argnums] if is_int_argnum else argnums
+
+    def mutate_is_leaf(node):
+        value_and_tree.mutator_dispatcher(node)
+        return False
+
+    def immutate_is_leaf(node):
+        value_and_tree.immutator_dispatcher(node)
+        return False
+
+    @ft.wraps(func)
+    def stateless_func(*args, **kwargs) -> tuple[Any, PyTree | tuple[PyTree, ...]]:
+        # copy the incoming inputs
+        (args, kwargs) = tree_copy((args, kwargs))
+        # and edit the node/record to make it mutable (if there is a rule for it)
+        treelib.tree_map(lambda _: _, (args, kwargs), is_leaf=mutate_is_leaf)
+        trees = [a if i in argnums else None for i, a in enumerate(args)]
+        # call the function on the copies
+        args = [r if i in argnums else l for i, (l, r) in enumerate(zip(args, trees))]
+        output = func(*args, **kwargs)
+        # traverse each node in the tree depth-first manner
+        # to undo the mutation (if there is a rule for it)
+        treelib.tree_map(lambda _: _, (args, kwargs), is_leaf=immutate_is_leaf)
+        trees = [a for i, a in enumerate(args) if i in argnums]
+        trees = trees[0] if is_int_argnum else tuple(trees)
+        return output, trees
+
+    return stateless_func
+
+
+value_and_tree.mutator_dispatcher = ft.singledispatch(lambda node: node)
+value_and_tree.immutator_dispatcher = ft.singledispatch(lambda node: node)
+value_and_tree.def_mutator = value_and_tree.mutator_dispatcher.register
+value_and_tree.def_immutator = value_and_tree.immutator_dispatcher.register
+
+
+if is_package_avaiable("jax"):
+    import jax
+
+    # basically avoid calling copy on jax arrays because they
+    # are immutable by default
+    @tree_copy.def_type(jax.Array)
+    def _(node: jax.Array) -> jax.Array:
+        return node
+
+    # avoid calling __copy__ on jitted functions becasue they loses their
+    # wrapped function attributes (maybe a bug in jax)
+    @tree_copy.def_type(type(jax.jit(lambda x: x)))
+    def _(node: T1) -> T1:
+        return node

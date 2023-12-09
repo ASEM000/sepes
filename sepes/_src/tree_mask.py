@@ -22,6 +22,7 @@ from typing import Any, Callable, NamedTuple, TypeVar, Union
 
 import sepes
 import sepes._src.backend.arraylib as arraylib
+from sepes._src.backend import is_package_avaiable
 from sepes._src.tree_pprint import tree_repr, tree_str, tree_summary
 from sepes._src.tree_util import Static, is_tree_equal, tree_copy, tree_hash
 
@@ -415,8 +416,6 @@ def tree_unmask(tree: T, mask: MaskType = lambda _: True):
     """
     return _tree_mask_map(tree, mask=mask, func=unfreeze, is_leaf=is_frozen)
 
-
-from sepes._src.backend import is_package_avaiable
 
 if is_package_avaiable("jax"):
     import jax

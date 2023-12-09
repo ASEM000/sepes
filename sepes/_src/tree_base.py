@@ -23,10 +23,10 @@ from typing_extensions import Unpack
 
 import sepes
 from sepes._src.code_build import fields
-from sepes._src.tree_index import AtIndexer
 from sepes._src.tree_pprint import PPSpec, tree_repr, tree_str
-from sepes._src.tree_util import is_tree_equal, tree_copy, tree_hash
+from sepes._src.tree_util import is_tree_equal, tree_copy, tree_hash, value_and_tree
 from typing_extensions import Self
+from sepes._src.tree_index import AtIndexer
 
 T = TypeVar("T", bound=Hashable)
 S = TypeVar("S")
@@ -72,7 +72,7 @@ class TreeClass(metaclass=TreeClassMeta):
         :class:`.TreeClass` is immutable by default. This means that setting or
         deleting attributes after initialization is not allowed. This behavior
         is intended to prevent accidental mutation of the tree. All tree modifications
-        on `TreeClass` are out-of-place. This means that **all** tree modifications
+        on `TreeClass` are out-of-place. This means that all tree modifications
         return a new instance of the tree with the modified values.
 
         There are two ways to set or delete attributes after initialization:
@@ -88,27 +88,26 @@ class TreeClass(metaclass=TreeClassMeta):
            >>> tree is new_tree  # new instance is created
            False
 
-        2. Using :attr:`.at[mutating_method_name]` to call a *mutating* method
+        2. Using :func:`.value_and_tree` to call a method that mutates the tree.
            and apply the mutation on a *copy* of the tree. This option allows
            writing methods that mutate the tree instance but with these updates
            applied on a copy of the tree.
 
            >>> import sepes as sp
            >>> class Tree(sp.TreeClass):
-           ...     def __init__(self, leaf: int):
-           ...         self.leaf = leaf
-           ...     def add_leaf(self, name:str, value:int) -> None:
+           ...     def __init__(self, foo: int):
+           ...         self.foo = foo
+           ...     def add_bar(self, value:int) -> None:
            ...         # this method mutates the tree instance
            ...         # and will raise an `AttributeError` if called directly.
-           ...         setattr(self, name, value)
-           >>> tree = Tree(leaf=1)
-           >>> # now lets try to call `add_leaf` directly
-           >>> tree.add_leaf(name="new_leaf", value=100)  # doctest: +SKIP
-           Cannot set attribute value=100 to `key='new_leaf'`  on an immutable instance of `Tree`.
-           >>> # now lets try to call `add_leaf` using `at["add_leaf"]`
-           >>> method_output, new_tree = tree.at["add_leaf"](name="new_leaf", value=100)
-           >>> new_tree
-           Tree(leaf=1, new_leaf=100)
+           ...         setattr(self, "bar", value)
+           >>> tree = Tree(foo=1)
+           >>> # now lets try to call `add_bar` directly
+           >>> tree.add_bar(value=100)  # doctest: +SKIP
+           Cannot set attribute value=100 to `key='bar'`  on an immutable instance of `Tree`.
+           >>> output, tree_ = sp.value_and_tree(lambda T: T.add_bar(100))(tree)
+           >>> tree, tree_
+           (Tree(foo=1), Tree(foo=1, bar=100))
 
            This pattern is useful to write freely mutating methods, but with
            The expense of having to call through `at["method_name"]` instead of
@@ -128,13 +127,12 @@ class TreeClass(metaclass=TreeClassMeta):
 
         2. Auto generated ``__init__`` method from type annotations.
 
-           Either by ``dataclasses.dataclasss`` or by using :func:`.autoinit` decorator
-           where the type annotations are used to generate the ``__init__`` method
-           similar to ``dataclasses.dataclass``. Compared to ``dataclasses.dataclass``,
-           :func:`.autoinit`` with :func:`field` objects can be used to apply functions on
-           the field values during initialization, support multiple argument kinds,
-           and can apply functions on field values on getting the value.
-           For more details see :func:`.autoinit` and :func:`.field`.
+           Using :func:`.autoinit` decorator where the type annotations are used to
+           generate the ``__init__`` method. :func:`.autoinit`` with :func:`field`
+           objects can be used to apply functions on the field values during
+           initialization, support multiple argument kinds, and can apply functions
+           on field values on getting the value. For more details see :func:`.autoinit`
+           and :func:`.field`.
 
            >>> import sepes as sp
            >>> @sp.autoinit
@@ -203,9 +201,26 @@ class TreeClass(metaclass=TreeClassMeta):
         [2.0]
 
     Note:
-        - :class:`.TreeClass` inherits from ``abc.ABC`` meaning that it can `abc`
-          features like ``@abc.abstractmethod`` can be used to define abstract
-          behavior that can be implemented by subclasses.
+        ``AttributeError`` is raised, If a method that mutates the instance
+        is called directly. Instead use :func:`.value_and_tree` to call
+        the method on a copy of the tree. :func:`.value_and_tree` calls the function
+        on copied input arguments to ensure non-mutating behavior.
+
+        >>> import sepes as sp
+        >>> class Counter(sp.TreeClass):
+        ...     def __init__(self, count: int):
+        ...         self.count = count
+        ...     def increment(self, value):
+        ...         self.count += value
+        ...         return self.count
+        >>> counter = Counter(0)
+        >>> sp.value_and_tree(lambda C: C.increment(1))(counter)
+        (1, Counter(count=1))
+
+    Note:
+        :class:`.TreeClass` inherits from ``abc.ABC`` meaning that it can `abc`
+        features like ``@abc.abstractmethod`` can be used to define abstract
+        behavior that can be implemented by subclasses.
 
     Warning:
         The structure should be organized as a tree. In essence, *cyclic references*
@@ -271,8 +286,6 @@ class TreeClass(metaclass=TreeClassMeta):
             Set the `value` and return a new instance with the updated value.
         - ``.at[***].apply(func)``:
             Apply a ``func`` and return a new instance with the updated value.
-        - ``.at['method'](*a, **k)``:
-            Call a ``method`` and return a (return value, new instance) tuple.
 
         *Acceptable indexing types are:*
             - ``str`` for mapping keys or class attributes.
@@ -285,7 +298,6 @@ class TreeClass(metaclass=TreeClassMeta):
 
         Example:
             >>> import sepes as sp
-            <BLANKLINE>
             >>> @sp.autoinit
             ... class Tree(sp.TreeClass):
             ...    a: int = 1
@@ -294,55 +306,16 @@ class TreeClass(metaclass=TreeClassMeta):
             ...        self.a += x
             ...        return self.a
             >>> tree = Tree()
-            <BLANKLINE>
-            >>> # get `a` and return a new instance
-            >>> # with `None` for all other leaves
             >>> tree.at["a"].get()
             Tree(a=1, b=None)
-            <BLANKLINE>
-            >>> # set `a` and return a new instance
-            >>> # with all other leaves unchanged
             >>> tree.at["a"].set(100)
             Tree(a=100, b=2.0)
-            <BLANKLINE>
-            >>> # apply to `a` and return a new instance
-            >>> # with all other leaves unchanged
             >>> tree.at["a"].apply(lambda x: 100)
             Tree(a=100, b=2.0)
-            <BLANKLINE>
-            >>> # call `add` and return a tuple of
-            >>> # (return value, new instance)
-            >>> tree.at["add"](99)
-            (100, Tree(a=100, b=2.0))
 
         Note:
             - ``pytree.at[*][**]`` is equivalent to selecting pytree.*.** .
             - ``pytree.at[*, **]`` is equivalent selecting pytree.* and pytree.**
-
-        Note:
-            - ``AttributeError`` is raised, If a method that mutates the instance
-              is called directly. Instead use ``at["method_name"]`` to call a method
-              that mutates the instance.
-
-        Example:
-            Building immutable chainable methods with ``at``:
-
-            The following example shows how to build a chainable methods using
-            ``at`` property. Note that while the methods are mutating the instance,
-            the mutation is applied on a copy of the tree and the original tree
-            is not mutated.
-
-            >>> import sepes as sp
-            >>> class Tree(sp.TreeClass):
-            ...    def set_x(self, x):
-            ...        self.x = x
-            ...    def set_y(self, y):
-            ...        self.y = y
-            ...    def calculate(self):
-            ...        return self.x + self.y
-            >>> tree = Tree()
-            >>> tree.at["set_x"](x=1)[1].at["set_y"](y=2)[1].calculate()
-            3
         """
         return AtIndexer(self)
 
@@ -378,11 +351,11 @@ def _(node: TreeClass, **spec: Unpack[PPSpec]) -> str:
     return name + "(" + tree_str.pps(tree_str.av_pp, kvs, **spec) + ")"
 
 
-@AtIndexer.custom_call.def_mutator(TreeClass)
+@value_and_tree.def_mutator(TreeClass)
 def _(node: TreeClass) -> None:
     add_mutable_entry(node)
 
 
-@AtIndexer.custom_call.def_immutator(TreeClass)
+@value_and_tree.def_immutator(TreeClass)
 def _(node: TreeClass) -> None:
     discard_mutable_entry(node)

@@ -38,8 +38,7 @@ from typing_extensions import Self
 import sepes
 import sepes._src.backend.arraylib as arraylib
 from sepes._src.backend.treelib import ParallelConfig
-from types import SimpleNamespace
-from sepes._src.tree_util import tree_copy
+from sepes._src.tree_pprint import tree_repr
 
 T = TypeVar("T")
 S = TypeVar("S")
@@ -48,15 +47,6 @@ EllipsisType = TypeVar("EllipsisType")
 KeyEntry = TypeVar("KeyEntry", bound=Hashable)
 KeyPath = Tuple[KeyEntry, ...]
 _no_initializer = object()
-
-
-def recursive_getattr(tree: Any, where: tuple[str, ...]):
-    # used to fetch methods from a class defined by path mask
-    if not isinstance(where[0], str):
-        raise TypeError(f"Expected string, got {type(where[0])!r}.")
-    if len(where) == 1:
-        return getattr(tree, where[0])
-    return recursive_getattr(getattr(tree, where[0]), where[1:])
 
 
 class BaseKey(abc.ABC):
@@ -106,7 +96,7 @@ class BaseKey(abc.ABC):
         ...        return cls(*children)
         ...    @property
         ...    def at(self):
-        ...        return sp.AtIndexer(self)
+        ...        return sp.at(self)
         >>> tree = Tree(1, 2)
         >>> class MatchNameType(sp.BaseKey):
         ...    def __init__(self, name, type):
@@ -398,7 +388,7 @@ def generate_path_mask(tree, where: tuple[BaseKey, ...], *, is_leaf=None):
 
 
 def resolve_where(
-    where: tuple[Any, ...],  # type: ignore
+    where: list[Any],
     tree: T,
     is_leaf: Callable[[Any], None] | None = None,
 ):
@@ -443,7 +433,7 @@ def resolve_where(
             # the following is an example showcase this:
             # >>> tree = [1, 2, [3, 4]]
             # >>> mask = [True, True, False]
-            # >>> AtIndexer(tree)[mask].get()
+            # >>> at(tree)[mask].get()
             # in essence the user can mark full subtrees by `False` without
             # needing to populate the subtree with `False` values. if treedef
             # check is mandated then the user will need to populate the subtree
@@ -492,10 +482,13 @@ def resolve_where(
 
 
 class AtIndexer(Generic[T]):
-    """Index a pytree at a given path using a path or mask.
+    """Operate on a pytree at a given path using a path or mask in out-of-place manner.
+
+    Note:
+        Use :class:`.at` as a shorter alias for this class.
 
     Args:
-        tree: pytree to index
+        tree: pytree to operate on.
         where: one of the following:
 
             - ``str`` for mapping keys or class attributes.
@@ -506,63 +499,35 @@ class AtIndexer(Generic[T]):
             - an instance of ``BaseKey`` with custom logic to index a pytree.
             - a tuple of the above to match multiple keys at the same level.
 
+    Note:
+        Alternatively, use ``at(tree)[where]`` to index a pytree.
+
     Example:
         >>> import jax
         >>> import sepes as sp
-        >>> tree = {"level1_0": {"level2_0": 100, "level2_1": 200}, "level1_1": 300}
-        >>> indexer = sp.AtIndexer(tree)
-        <BLANKLINE>
-        >>> indexer["level1_0"]["level2_0"].get()
-        {'level1_0': {'level2_0': 100, 'level2_1': None}, 'level1_1': None}
-        <BLANKLINE>
-        >>> # get multiple keys at once at the same level
-        >>> indexer["level1_0"]["level2_0", "level2_1"].get()
-        {'level1_0': {'level2_0': 100, 'level2_1': 200}, 'level1_1': None}
-        <BLANKLINE>
-        >>> # get with a mask
-        >>> mask = {"level1_0": {"level2_0": True, "level2_1": False}, "level1_1": True}
-        >>> indexer[mask].get()
-        {'level1_0': {'level2_0': 100, 'level2_1': None}, 'level1_1': 300}
-
-    Example:
-        >>> # use ``AtIndexer`` in a class
-        >>> import jax.tree_util as jtu
-        >>> import sepes as sp
-        >>> @jax.tree_util.register_pytree_with_keys_class
-        ... class Tree:
-        ...    def __init__(self, a, b):
-        ...        self.a = a
-        ...        self.b = b
-        ...    def tree_flatten_with_keys(self):
-        ...        kva = (jtu.GetAttrKey("a"), self.a)
-        ...        kvb = (jtu.GetAttrKey("b"), self.b)
-        ...        return (kva, kvb), None
-        ...    @classmethod
-        ...    def tree_unflatten(cls, aux_data, children):
-        ...        return cls(*children)
-        ...    @property
-        ...    def at(self):
-        ...        return sp.AtIndexer(self)
-        ...    def __repr__(self) -> str:
-        ...        return f"{type(self).__name__}(a={self.a}, b={self.b})"
-        >>> Tree(1, 2).at["a"].get()
-        Tree(a=1, b=None)
+        >>> tree = {"a": 1, "b": [1, 2, 3]}
+        >>> sp.at(tree)["a"].set(100)
+        {'a': 100, 'b': [1, 2, 3]}
+        >>> sp.at(tree)["b"][0].set(100)
+        {'a': 1, 'b': [100, 2, 3]}
+        >>> mask = jax.tree_map(lambda x: x > 1, tree)
+        >>> sp.at(tree)[mask].set(100)
+        {'a': 1, 'b': [1, 100, 100]}
     """
 
-    def __init__(self, tree: T, where: tuple[BaseKey | Any] | tuple[()] = ()):
-        self.tree = tree
-        self.where = where
+    def __init__(self, tree: T, where: list[Any] | None = None) -> None:
+        vars(self)["tree"] = tree
+        vars(self)["where"] = [] if where is None else where
+
+    def __setattr__(self, key: str, _: Any) -> None:
+        raise AttributeError(f"Cannot set {key=} on {type(self).__name__} instance")
 
     def __getitem__(self, where: Any) -> Self:
-        # syntax sugar for extending the current path with `where`
-        # AtIndexer(tree)[`where1`][`where2`] -> AtIndexer(tree, (`where1`, `where2`))
-        # no distinction between class attribute and mapping key is made
-        # for example AtIndexer(tree)["a"]["b"] will match both
-        # tree.a.b and tree["a"]["b"] if tree is a dict or a class instance
-        return type(self)(self.tree, (*self.where, where))
+        """Index a pytree at a given path using a path or mask."""
+        return type(self)(self.tree, [*self.where, where])
 
     def __repr__(self) -> str:
-        return f"{type(self).__name__}(tree={self.tree!r}, where={self.where})"
+        return f"{type(self).__name__}(tree={tree_repr(self.tree)}, where={self.where})"
 
     def get(
         self,
@@ -589,21 +554,8 @@ class AtIndexer(Generic[T]):
         Example:
             >>> import sepes as sp
             >>> tree = {"a": 1, "b": [1, 2, 3]}
-            >>> indexer = sp.AtIndexer(tree)  # construct an indexer
-            >>> indexer["b"][0].get()  # get the first element of "b"
+            >>> sp.at(tree)["b"][0].get()
             {'a': None, 'b': [1, None, None]}
-
-        Example:
-            >>> import sepes as sp
-            >>> @sp.autoinit
-            ... class Tree(sp.TreeClass):
-            ...     a: int
-            ...     b: int
-            >>> tree = Tree(a=1, b=2)
-            >>> # get ``a`` and return a new instance
-            >>> # with ``None`` for all other leaves
-            >>> tree.at['a'].get()
-            Tree(a=1, b=None)
         """
         treelib = sepes._src.backend.treelib
 
@@ -653,21 +605,8 @@ class AtIndexer(Generic[T]):
         Example:
             >>> import sepes as sp
             >>> tree = {"a": 1, "b": [1, 2, 3]}
-            >>> indexer = sp.AtIndexer(tree)
-            >>> indexer["b"][0].set(100)  # set the first element of "b" to 100
+            >>> sp.at(tree)["b"][0].set(100)
             {'a': 1, 'b': [100, 2, 3]}
-
-        Example:
-            >>> import sepes as sp
-            >>> @sp.autoinit
-            ... class Tree(sp.TreeClass):
-            ...     a: int
-            ...     b: int
-            >>> tree = Tree(a=1, b=2)
-            >>> # set ``a`` and return a new instance
-            >>> # with all other leaves unchanged
-            >>> tree.at['a'].set(100)
-            Tree(a=100, b=2)
         """
         treelib = sepes._src.backend.treelib
 
@@ -734,28 +673,17 @@ class AtIndexer(Generic[T]):
         Example:
             >>> import sepes as sp
             >>> tree = {"a": 1, "b": [1, 2, 3]}
-            >>> indexer = sp.AtIndexer(tree)
-            >>> indexer["b"][0].apply(lambda x: x + 100)  # add 100 to the first element of "b"
+            >>> sp.at(tree)["b"][0].apply(lambda x: x + 100)
             {'a': 1, 'b': [101, 2, 3]}
 
         Example:
-            >>> import sepes as sp
-            >>> @sp.autoinit
-            ... class Tree(sp.TreeClass):
-            ...     a: int
-            ...     b: int
-            >>> tree = Tree(a=1, b=2)
-            >>> # apply to ``a`` and return a new instance
-            >>> # with all other leaves unchanged
-            >>> tree.at['a'].apply(lambda _: 100)
-            Tree(a=100, b=2)
+            Read images in parallel
 
-        Example:
-            >>> # read images in parallel
             >>> import sepes as sp
             >>> from matplotlib.pyplot import imread
-            >>> indexer = sp.AtIndexer({"lenna": "lenna.png", "baboon": "baboon.png"})
-            >>> images = indexer[...].apply(imread, parallel=dict(max_workers=2))  # doctest: +SKIP
+            >>> path = {"img1": "path1.png", "img2": "path2.png"}
+            >>> is_parallel = dict(max_workers=2)
+            >>> images = sp.at(path)[...].apply(imread, is_parallel=is_parallel)  # doctest: +SKIP
         """
 
         treelib = sepes._src.backend.treelib
@@ -802,33 +730,14 @@ class AtIndexer(Generic[T]):
 
         Example:
             >>> import sepes as sp
-            >>> tree = {"level1_0": {"level2_0": 100, "level2_1": 200}, "level1_1": 300}
-            >>> def scan_func(leaf, state):
-            ...     return 'SET', state + 1
-            >>> init_state = 0
-            >>> indexer = sp.AtIndexer(tree)
-            >>> indexer["level1_0"]["level2_0"].scan(scan_func, state=init_state)
-            ({'level1_0': {'level2_0': 'SET', 'level2_1': 200}, 'level1_1': 300}, 1)
-
-        Example:
-            >>> import sepes as sp
-            >>> from typing import NamedTuple
-            >>> class State(NamedTuple):
-            ...     func_evals: int = 0
-            >>> @sp.autoinit
-            ... class Tree(sp.TreeClass):
-            ...     a: int
-            ...     b: int
-            ...     c: int
-            >>> tree = Tree(a=1, b=2, c=3)
-            >>> def scan_func(leaf, state: State):
-            ...     state = State(state.func_evals + 1)
-            ...     return leaf + 1, state
-            >>> # apply to ``a`` and ``b`` and return a new instance with all other
-            >>> # leaves unchanged and the new state that counts the number of
-            >>> # function evaluations
-            >>> tree.at['a','b'].scan(scan_func, state=State())
-            (Tree(a=2, b=3, c=3), State(func_evals=2))
+            >>> tree = {"a": 1, "b": [1, 2, 3]}
+            >>> def scan_func(leaf, running_max):
+            ...     cur_max = max(leaf, running_max)
+            ...     return leaf, cur_max
+            >>> running_max = float("-inf")
+            >>> _, running_max = sp.at(tree)["b"][0, 1].scan(scan_func, state=running_max)
+            >>> running_max  # max of b[0] and b[1]
+            2
 
         Note:
             ``scan`` applies a binary ``func`` to the leaf values while carrying
@@ -884,13 +793,9 @@ class AtIndexer(Generic[T]):
 
         Example:
             >>> import sepes as sp
-            >>> @sp.autoinit
-            ... class Tree(sp.TreeClass):
-            ...     a: int
-            ...     b: int
-            >>> tree = Tree(a=1, b=2)
-            >>> tree.at[...].reduce(lambda a, b: a + b, initializer=0)
-            3
+            >>> tree = {"a": 1, "b": [1, 2, 3]}
+            >>> sp.at(tree)["b"].reduce(lambda x, y: x + y)
+            6
         """
         treelib = sepes._src.backend.treelib
         tree = self.get(is_leaf=is_leaf)  # type: ignore
@@ -937,14 +842,13 @@ class AtIndexer(Generic[T]):
         Example:
             >>> import sepes as sp
             >>> tree = {"a": 1, "b": [1, 2, 3]}
-            >>> indexer = sp.AtIndexer(tree)  # construct an indexer
             <BLANKLINE>
             >>> # `pluck` returns a list of selected subtrees
-            >>> indexer["b"].pluck()
+            >>> sp.at(tree)["b"].pluck()
             [[1, 2, 3]]
             <BLANKLINE>
             >>> # `get` returns same pytree
-            >>> indexer["b"].get()
+            >>> sp.at(tree)["b"].get()
             {'a': None, 'b': [1, 2, 3]}
 
         Example:
@@ -953,8 +857,7 @@ class AtIndexer(Generic[T]):
             >>> import sepes as sp
             >>> tree = {"a": 1, "b": [2, 3, 4]}
             >>> mask = {"a": True, "b": [False, True, False]}
-            >>> indexer = sp.AtIndexer(tree)
-            >>> indexer[mask].pluck()
+            >>> sp.at(tree)[mask].pluck()
             [1, 3]
 
             This is equivalent to the following:
@@ -990,128 +893,6 @@ class AtIndexer(Generic[T]):
         treelib.tree_flatten(tree, is_leaf=aggregate_subtrees)
         return subtrees
 
-    def __call__(self, *args, **kwargs) -> tuple[Any, PyTree]:
-        """Call and return a tuple of the result and copy of the tree.
 
-        Executes the method defined by the ``where`` path on the tree on
-        a copy of the tree and returns a tuple of the result and the copy.
-        To avoid mutating in place, use this method instead of calling the
-        method directly on the tree.
-
-        Example:
-            >>> import sepes as sp
-            >>> import jax
-            >>> @jax.tree_util.register_pytree_with_keys_class
-            ... class Counter:
-            ...    def __init__(self, count: int):
-            ...        self.count = count
-            ...    def tree_flatten_with_keys(self):
-            ...        return (["count", self.count],), None
-            ...    @classmethod
-            ...    def tree_unflatten(cls, aux_data, children):
-            ...        del aux_data
-            ...        return cls(*children)
-            ...    def increment_count(self) -> int:
-            ...        # mutates the tree
-            ...        self.count += 1
-            ...        return self.count
-            ...    def __repr__(self) -> str:
-            ...        return f"Tree(count={self.count})"
-            >>> counter = Counter(0)
-            >>> indexer = sp.AtIndexer(counter)
-            >>> cur_count, new_counter = indexer["increment_count"]()
-            >>> counter, new_counter
-            (Tree(count=0), Tree(count=1))
-
-        Note:
-            The default behavior of :class:`.AtIndexer` ``__call__`` is to copy
-            the instance and then call the method on the copy. However certain
-            classes (e.g. :class:`.TreeClass` or ``dataclasses.dataclass(frozen=True)``)
-            do not support in-place mutation. In this case, :class:`.AtIndexer`
-            enables registering custom function that modifies the instance
-            to allow in-place mutation. and custom function that restores the
-            instance to its original state after the method call.
-
-            The following example shows how to register custom functions for
-            a simple class that allows in-place mutation if ``immutable`` Flag
-            is set to ``False``.
-
-            >>> import jax
-            >>> from jax.util import unzip2
-            >>> import sepes as sp
-            >>> @jax.tree_util.register_pytree_node_class
-            ... class MyNode:
-            ...     def __init__(self):
-            ...         self.counter = 0
-            ...         self.immutable = True
-            ...     def tree_flatten(self):
-            ...         keys, values = unzip2(vars(self).items())
-            ...         return tuple(values), tuple(keys)
-            ...     @classmethod
-            ...     def tree_unflatten(cls, keys, values):
-            ...         self = object.__new__(cls)
-            ...         vars(self).update(dict(zip(keys, values)))
-            ...         return self
-            ...     def __setattr__(self, name, value):
-            ...         if getattr(self, "immutable", False) is True:
-            ...             raise AttributeError("MyNode is immutable")
-            ...         object.__setattr__(self, name, value)
-            ...     def __repr__(self):
-            ...         params = ", ".join(f"{k}={v}" for k, v in vars(self).items())
-            ...         return f"MyNode({params})"
-            ...     def increment(self) -> None:
-            ...         self.counter += 1
-            >>> @sp.AtIndexer.custom_call.def_mutator(MyNode)
-            ... def mutable(node) -> None:
-            ...     vars(node)["immutable"] = False
-            >>> @sp.AtIndexer.custom_call.def_immutator(MyNode)
-            ... def immutable(node) -> None:
-            ...     vars(node)["immutable"] = True
-            >>> node = MyNode()
-            >>> sp.AtIndexer(node)["increment"]()
-            (None, MyNode(counter=1, immutable=True))
-        """
-        # copy the current tree
-        tree = tree_copy(self.tree)
-        # and edit the node/record to make it mutable (if there is a rule for it)
-        tree_mutate(tree)
-        # use the copied mutable version of the tree to call the method
-        method = recursive_getattr(tree, self.where)
-        output = method(*args, **kwargs)
-        # traverse each node in the tree depth-first manner
-        # to undo the mutation (if there is a rule for it)
-        tree_immutate(tree)
-        return output, tree
-
-
-def tree_mutate(tree):
-    treelib = sepes._src.backend.treelib
-
-    def is_leaf(node):
-        AtIndexer.custom_call.mutator_dispatcher(node)
-        return False
-
-    return treelib.tree_map(lambda x: x, tree, is_leaf=is_leaf)
-
-
-def tree_immutate(tree):
-    treelib = sepes._src.backend.treelib
-
-    def is_leaf(node):
-        AtIndexer.custom_call.immutator_dispatcher(node)
-        return False
-
-    return treelib.tree_map(lambda x: x, tree, is_leaf=is_leaf)
-
-
-# define rules for mutating and restoring the tree after calling a method
-# useful in case the class does not support in-place mutation
-# thus a rule to mutate the tree before calling the method and
-# a rule to restore the tree after calling the method is needed.
-custom_call = SimpleNamespace()
-custom_call.mutator_dispatcher = ft.singledispatch(lambda node: node)
-custom_call.immutator_dispatcher = ft.singledispatch(lambda node: node)
-custom_call.def_mutator = custom_call.mutator_dispatcher.register
-custom_call.def_immutator = custom_call.immutator_dispatcher.register
-
-AtIndexer.custom_call = custom_call
+# shorter alias
+at = AtIndexer

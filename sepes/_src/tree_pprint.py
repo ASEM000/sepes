@@ -16,7 +16,6 @@
 
 from __future__ import annotations
 
-import dataclasses as dc
 import functools as ft
 import inspect
 import math
@@ -32,9 +31,10 @@ import sepes._src.backend.arraylib as arraylib
 from sepes._src.backend import is_package_avaiable
 from sepes._src.tree_util import (
     Node,
+    Partial,
     construct_tree,
     is_path_leaf_depth_factory,
-    tree_typed_path_leaves,
+    tree_type_path_leaves,
 )
 
 
@@ -178,9 +178,13 @@ def _(func: Callable, **spec: Unpack[PPSpec]) -> str:
     return f"{name}({', '.join(header)})"
 
 
+@tree_str.def_type(Partial)
 @tree_str.def_type(ft.partial)
 def _(node: ft.partial, **spec: Unpack[PPSpec]) -> str:
-    return f"Partial(" + tree_repr.pp(node.func, **spec) + ")"
+    func = tree_str.pp(node.func, **spec)
+    args = tree_str.pps(tree_str.pp, node.args, **spec)
+    keywords = tree_str.pps(tree_str.kv_pp, node.keywords, **spec)
+    return f"Partial(" + ",".join([func, args, keywords]) + ")"
 
 
 @tree_str.def_type(list)
@@ -238,9 +242,13 @@ for ndarray in arraylib.ndarrays:
         return f"{base}(μ={mean}, σ={std}, ∈{interval})"
 
 
+@tree_repr.def_type(Partial)
 @tree_repr.def_type(ft.partial)
 def _(node: ft.partial, **spec: Unpack[PPSpec]) -> str:
-    return "Partial(" + tree_repr.pp(node.func, **spec) + ")"
+    func = tree_repr.pp(node.func, **spec)
+    args = tree_repr.pps(tree_repr.pp, node.args, **spec)
+    keywords = tree_repr.pps(tree_repr.kv_pp, node.keywords, **spec)
+    return "Partial(" + ",".join([func, args, keywords]) + ")"
 
 
 @tree_repr.def_type(list)
@@ -541,9 +549,9 @@ def tree_summary(
     """Print a summary of an arbitrary pytree.
 
     Args:
-        tree: a registered pytree to summarize.
-        depth: max depth to display the tree. defaults to maximum depth.
-        is_leaf: function to determine if a node is a leaf. defaults to None
+        tree: A pytree.
+        depth: max depth to display the tree. Defaults to maximum depth.
+        is_leaf: function to determine if a node is a leaf. Defaults to ``None``
 
     Returns:
         String summary of the tree structure:
@@ -554,7 +562,7 @@ def tree_summary(
               is the number of elements in the array, otherwise its 1. to control the
               number of leaves of a node use ``tree_summary.def_count(type,func)``
             - Fourth column: size of the node in bytes. if the node is array the size
-              is the size of the array in bytes, otherwise its the size is not displayed.
+              is the size of the array in bytes, otherwise the size is not displayed.
               to control the size of a node use ``tree_summary.def_size(type,func)``
             - Last row: type of parent, number of leaves of the parent
 
@@ -577,26 +585,8 @@ def tree_summary(
         └─────────┴──────┴─────┴──────┘
 
     Example:
-        >>> # set python `int` to have 4 bytes using dispatching
-        >>> import sepes as sp
-        >>> print(sp.tree_summary(1))
-        ┌────┬────┬─────┬────┐
-        │Name│Type│Count│Size│
-        ├────┼────┼─────┼────┤
-        │Σ   │int │1    │    │
-        └────┴────┴─────┴────┘
-        >>> @sp.tree_summary.def_size(int)
-        ... def _(node: int) -> int:
-        ...     return 4
-        >>> print(sp.tree_summary(1))
-        ┌────┬────┬─────┬─────┐
-        │Name│Type│Count│Size │
-        ├────┼────┼─────┼─────┤
-        │Σ   │int │1    │4.00B│
-        └────┴────┴─────┴─────┘
+        Set custom type display for ``jax`` jaxprs
 
-    Example:
-        >>> # set custom type display for jaxprs
         >>> import jax
         >>> import sepes as sp
         >>> ClosedJaxprType = type(jax.make_jaxpr(lambda x: x)(1))
@@ -613,40 +603,101 @@ def tree_summary(
         ├────┼──────────────────┼─────┼────┤
         │Σ   │Jaxpr([a, b], [a])│1    │    │
         └────┴──────────────────┴─────┴────┘
+
+    Example:
+        Display flops of a function in tree summary
+
+        >>> import jax
+        >>> import functools as ft
+        >>> import sepes as sp
+        >>> def count_flops(func, *args, **kwargs) -> int:
+        ...     cost_analysis = jax.jit(func).lower(*args, **kwargs).cost_analysis()
+        ...     return cost_analysis["flops"] if "flops" in cost_analysis else 0
+        >>> class Flops:
+        ...     def __init__(self, func, *args, **kwargs):
+        ...         self.func = ft.partial(func, *args, **kwargs)
+        >>> @sp.tree_summary.def_count(Flops)
+        ... def _(node: Flops) -> int:
+        ...     return count_flops(node.func)
+        >>> @sp.tree_summary.def_type(Flops)
+        ... def _(node: Flops) -> str:
+        ...     return f"Flops({sp.tree_repr(node.func.func)})"
+        >>> tree = dict(a=1, b=Flops(jax.nn.relu, jax.numpy.ones((10, 1))))
+        >>> print(sp.tree_summary(tree))
+        ┌─────┬───────────────────┬─────┬────┐
+        │Name │Type               │Count│Size│
+        ├─────┼───────────────────┼─────┼────┤
+        │['a']│int                │1    │    │
+        ├─────┼───────────────────┼─────┼────┤
+        │['b']│Flops(jit(relu(x)))│10.0 │    │
+        ├─────┼───────────────────┼─────┼────┤
+        │Σ    │dict               │11.0 │    │
+        └─────┴───────────────────┴─────┴────┘
+
+    Example:
+        Register custom type size rule
+
+        >>> import jax
+        >>> import sepes as sp
+        >>> def func(x):
+        ...     print(sp.tree_summary(x))
+        ...     return x
+        >>> class AbstractZero: ...
+        >>> @sp.tree_summary.def_size(AbstractZero)
+        ... def _(node: AbstractZero) -> int:
+        ...     return 0
+        >>> print(sp.tree_summary(AbstractZero()))
+        ┌────┬────────────┬─────┬────┐
+        │Name│Type        │Count│Size│
+        ├────┼────────────┼─────┼────┤
+        │Σ   │AbstractZero│1    │    │
+        └────┴────────────┴─────┴────┘
     """
     treelib = sepes._src.backend.treelib
+    empty_trace = ((), ())
+    total_rows: list[list[str]] = [["Name", "Type", "Count", "Size"]]
+    total_count = total_size = 0
 
-    rows = [["Name", "Type", "Count", "Size"]]
-    tcount = tsize = 0
+    def tree_size(tree: PyTree) -> int:
+        def reduce_func(acc, node):
+            return acc + tree_summary.size_dispatcher(node)
 
-    traces_leaves = tree_typed_path_leaves(
-        tree,
+        leaves, _ = treelib.tree_flatten(tree)
+        return ft.reduce(reduce_func, leaves, 0)
+
+    def tree_count(tree: PyTree) -> int:
+        def reduce_func(acc, node):
+            return acc + tree_summary.count_dispatcher(node)
+
+        leaves, _ = treelib.tree_flatten(tree)
+        return ft.reduce(reduce_func, leaves, 0)
+
+    traces_leaves = tree_type_path_leaves(
+        tree=tree,
         is_leaf=is_leaf,
         is_path_leaf=is_path_leaf_depth_factory(depth),
     )
 
     for trace, leaf in traces_leaves:
-        tcount += (count := tree_count(leaf))
-        tsize += (size := tree_size(leaf))
+        total_count += (count := tree_count(leaf))
+        total_size += (size := tree_size(leaf))
 
-        if trace == ((), ()):
-            # avoid printing the leaf trace (which is the root of the tree)
-            # twice, once as a leaf and once as the root at the end
+        if trace == empty_trace:
             continue
 
         paths, _ = trace
-        pstr = treelib.keystr(paths)
-        tstr = tree_summary.type_dispatcher(leaf)
-        cstr = f"{count:,}" if count else ""
-        sstr = size_pp(size) if size else ""
-        rows += [[pstr, tstr, cstr, sstr]]
+        path_string = treelib.keystr(paths)
+        type_string = tree_summary.type_dispatcher(leaf)
+        count_string = f"{count:,}" if count else ""
+        size_string = size_pp(size) if size else ""
+        total_rows += [[path_string, type_string, count_string, size_string]]
 
-    pstr = "Σ"
-    tstr = tree_summary.type_dispatcher(tree)
-    cstr = f"{tcount:,}" if tcount else ""
-    sstr = size_pp(tsize) if tsize else ""
-    rows += [[pstr, tstr, cstr, sstr]]
-    return _table(rows)
+    path_string = "Σ"
+    type_string = tree_summary.type_dispatcher(tree)
+    count_string = f"{total_count:,}" if total_count else ""
+    size_string = size_pp(total_size) if total_size else ""
+    total_rows += [[path_string, type_string, count_string, size_string]]
+    return _table(total_rows)
 
 
 tree_summary.count_dispatcher = ft.singledispatch(lambda x: 1)
@@ -675,28 +726,11 @@ for ndarray in arraylib.ndarrays:
         return tree_repr(ShapeDTypePP(shape, dtype))
 
 
-def tree_size(tree: PyTree) -> int:
-    def reduce_func(acc, node):
-        return acc + tree_summary.size_dispatcher(node)
-
-    treelib = sepes._src.backend.treelib
-    leaves, _ = treelib.tree_flatten(tree)
-    return ft.reduce(reduce_func, leaves, 0)
-
-
-def tree_count(tree: PyTree) -> int:
-    def reduce_func(acc, node):
-        return acc + tree_summary.count_dispatcher(node)
-
-    treelib = sepes._src.backend.treelib
-    leaves, _ = treelib.tree_flatten(tree)
-    return ft.reduce(reduce_func, leaves, 0)
-
-
 if is_package_avaiable("jax"):
     # jax pretty printing extra handlers
     import jax
 
+    @tree_str.def_type(jax.ShapeDtypeStruct)
     @tree_repr.def_type(jax.ShapeDtypeStruct)
     def _(node: jax.ShapeDtypeStruct, **spec: Unpack[PPSpec]) -> str:
         shape = arraylib.shape(node)
@@ -706,11 +740,13 @@ if is_package_avaiable("jax"):
     # more readable repr for jax custom_jvp functions
     # for instance: jax.nn.relu is displayed as relu(x)
     # instead of <jax._src.custom_derivatives.custom_jvp object at ...>
+    @tree_str.def_type(jax.custom_jvp)
     @tree_repr.def_type(jax.custom_jvp)
     def _(node: jax.custom_jvp, **spec: Unpack[PPSpec]) -> str:
         node = getattr(node, "__wrapped__", "<unknown>")
         return tree_repr.dispatch(node, **spec)
 
+    @tree_str.def_type(type(jax.jit(lambda x: x)))
     @tree_repr.def_type(type(jax.jit(lambda x: x)))
     def _(node, **spec: Unpack[PPSpec]) -> str:
         # on copy pjit loses the __wrapped__ attribute (maybe a bug in jax)
@@ -721,6 +757,7 @@ if is_package_avaiable("jax"):
     # without this rule, Tracer will be handled by the array handler
     # that display min/max/mean/std of the array.However `Tracer` does not
     # have these attributes so this will cause an error upon calculation.
+    @tree_summary.def_type(jax.core.Tracer)
     @tree_repr.def_type(jax.core.Tracer)
     @tree_str.def_type(jax.core.Tracer)
     def _(node, **spec: Unpack[PPSpec]) -> str:

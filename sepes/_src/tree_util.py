@@ -619,16 +619,13 @@ def value_and_tree(func, argnums: int | Sequence[int] = 0):
         (args, kwargs) = tree_copy((args, kwargs))
         # and edit the node/record to make it mutable (if there is a rule for it)
         treelib.tree_map(lambda _: _, (args, kwargs), is_leaf=mutate_is_leaf)
-        trees = [a if i in argnums else None for i, a in enumerate(args)]
-        # call the function on the copies
-        args = [r if i in argnums else l for i, (l, r) in enumerate(zip(args, trees))]
         output = func(*args, **kwargs)
         # traverse each node in the tree depth-first manner
         # to undo the mutation (if there is a rule for it)
         treelib.tree_map(lambda _: _, (args, kwargs), is_leaf=immutate_is_leaf)
-        trees = [a for i, a in enumerate(args) if i in argnums]
-        trees = trees[0] if is_int_argnum else tuple(trees)
-        return output, trees
+        out_args = tuple(a for i, a in enumerate(args) if i in argnums)
+        out_args = out_args[0] if is_int_argnum else out_args
+        return output, out_args
 
     return stateless_func
 

@@ -24,7 +24,7 @@ from sepes._src.backend import arraylib, backend, treelib
 from sepes._src.code_build import autoinit
 from sepes._src.tree_base import TreeClass, _mutable_instance_registry
 from sepes._src.tree_index import AtIndexer, BaseKey
-from sepes._src.tree_util import is_tree_equal, leafwise
+from sepes._src.tree_util import is_tree_equal, leafwise, value_and_tree
 
 test_arraylib = os.environ.get("SEPES_TEST_ARRAYLIB", "numpy")
 
@@ -430,14 +430,14 @@ def test_method_call():
     class Tree2(TreeClass):
         b: Tree = Tree()
 
-    assert is_tree_equal(t.at["increment"]()[1], Tree(2))
-    assert is_tree_equal(Tree2().at["b"]["show"]()[0], 1)
+    assert is_tree_equal(value_and_tree(lambda T: T.increment())(t)[1], Tree(2))
+    assert is_tree_equal(value_and_tree(lambda T: T.b.show())(Tree2())[0], 1)
 
     with pytest.raises(AttributeError):
-        t.at["bla"]()
+        value_and_tree(t.bla)()
 
     with pytest.raises(TypeError):
-        t.at["a"]()
+        value_and_tree(t.a)()
 
     @leafwise
     @autoinit
@@ -449,7 +449,7 @@ def test_method_call():
             return x
 
     a = A(1)
-    _, b = a.at["__call__"](2)
+    _, b = value_and_tree(lambda A: A(2))(a)
 
     assert treelib.tree_flatten(a)[0] == [1]
     assert treelib.tree_flatten(b)[0] == [3]
@@ -575,9 +575,9 @@ def test_repr_str():
 
     t = Tree()
 
-    assert repr(t.at["a"]) == "AtIndexer(tree=Tree(a=1, b=2), where=('a',))"
-    assert str(t.at["a"]) == "AtIndexer(tree=Tree(a=1, b=2), where=('a',))"
-    assert repr(t.at[...]) == "AtIndexer(tree=Tree(a=1, b=2), where=(Ellipsis,))"
+    assert repr(t.at["a"]) == "AtIndexer(tree=Tree(a=1, b=2), where=['a'])"
+    assert str(t.at["a"]) == "AtIndexer(tree=Tree(a=1, b=2), where=['a'])"
+    assert repr(t.at[...]) == "AtIndexer(tree=Tree(a=1, b=2), where=[Ellipsis])"
 
 
 def test_compat_mask():
@@ -623,8 +623,7 @@ def test_call():
             return f"Tree(count={self.count})"
 
     counter = Counter(0)
-    indexer = AtIndexer(counter)
-    cur_count, new_counter = indexer["increment_count"]()
+    cur_count, new_counter = value_and_tree(lambda C: C.increment_count())(counter)
     assert counter.count == 0
     assert cur_count == 1
     assert new_counter.count == 1

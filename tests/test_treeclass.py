@@ -30,7 +30,7 @@ from sepes._src.code_build import (
 )
 from sepes._src.tree_base import TreeClass
 from sepes._src.tree_mask import freeze
-from sepes._src.tree_util import Partial, is_tree_equal
+from sepes._src.tree_util import Partial, is_tree_equal, value_and_tree
 
 test_arraylib = os.environ.get("SEPES_TEST_ARRAYLIB", "numpy")
 if test_arraylib == "jax":
@@ -510,7 +510,9 @@ def test_instance_field_map():
 
     tree = Tree()
 
-    _, tree_with_weight = tree.at["add_param"]("weight", Parameter(3))
+    _, tree_with_weight = value_and_tree(lambda T: T.add_param("weight", Parameter(3)))(
+        tree
+    )
 
     assert tree_with_weight.weight == Parameter(3)
     assert "weight" not in vars(tree)
@@ -599,22 +601,24 @@ def test_nested_mutation():
         def df(self):
             del self.inner.a
 
-    _, v = OuterModule().at["ff"]()
+    _, v = value_and_tree(lambda F: F.ff())(OuterModule())
     assert v.inner.a == 2
 
-    _, v = OuterModule().at["df"]()
+    _, v = value_and_tree(lambda F: F.df())(OuterModule())
     assert "a" not in v.inner.__dict__
 
 
 def test_autoinit_and_user_defined_init():
-    @autoinit
-    class Tree(TreeClass):
-        b: int
+    with pytest.raises(TypeError):
 
-        def __init__(self, a):
-            self.a = a
+        @autoinit
+        class Tree(TreeClass):
+            b: int
 
-    Tree(a=1)
+            def __init__(self, a):
+                self.a = a
+
+        Tree(a=1)
 
     assert True
 

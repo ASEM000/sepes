@@ -276,3 +276,20 @@ def test_tracer_repr():
         return x
 
     f(jax.numpy.ones((10, 10)))
+
+
+@pytest.mark.skipif(backend != "jax", reason="testing jax specific sharding info")
+def test_jax_sharding_tree_summary():
+    import jax
+    from jax.sharding import NamedSharding, PartitionSpec, Mesh
+    import jax.sharding as js
+    import numpy as np
+
+    x = jax.numpy.ones([4 * 4, 2 * 2])
+    mesh = js.Mesh(devices=np.array(jax.devices()).reshape(4, 2), axis_names=["i", "j"])
+    sharding = NamedSharding(mesh=mesh, spec=PartitionSpec("i", "j"))
+    x = jax.device_put(x, device=sharding)
+    assert (
+        tree_summary(x)
+        == "┌────┬───────────┬─────┬───────┐\n│Name│Type       │Count│Size   │\n├────┼───────────┼─────┼───────┤\n│Σ   │G:f32[16,4]│64   │256.00B│\n│    │S:f32[4,2] │     │       │\n└────┴───────────┴─────┴───────┘"
+    )

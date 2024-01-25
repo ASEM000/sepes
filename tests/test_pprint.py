@@ -21,8 +21,6 @@ from typing import Any
 
 import pytest
 import os
-
-os.environ["XLA_FLAGS"] = "--xla_force_host_platform_device_count=8"
 test_arraylib = os.environ.get("SEPES_TEST_ARRAYLIB", "numpy")
 backend = os.environ.get("SEPES_BACKEND", "jax")
 from sepes._src.code_build import autoinit, field

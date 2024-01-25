@@ -21,7 +21,7 @@ from sepes._src.backend import backend, treelib
 from sepes._src.code_build import autoinit
 from sepes._src.tree_base import TreeClass
 from sepes._src.tree_mask import (
-    is_frozen,
+    is_masked,
     tree_mask,
     tree_unmask,
 )
@@ -55,9 +55,9 @@ def test_freeze_unfreeze():
     b = a.at[...].apply(freeze)
     c = (
         a.at["a"]
-        .apply(unfreeze, is_leaf=is_frozen)
+        .apply(unfreeze, is_leaf=is_masked)
         .at["b"]
-        .apply(unfreeze, is_leaf=is_frozen)
+        .apply(unfreeze, is_leaf=is_masked)
     )
 
     assert treelib.tree_flatten(a)[0] == [1, 2]
@@ -84,9 +84,9 @@ def test_freeze_unfreeze():
     b = treelib.tree_map(freeze, a)
     c = (
         a.at["a"]
-        .apply(unfreeze, is_leaf=is_frozen)
+        .apply(unfreeze, is_leaf=is_masked)
         .at["b"]
-        .apply(unfreeze, is_leaf=is_frozen)
+        .apply(unfreeze, is_leaf=is_masked)
     )
 
     assert treelib.tree_flatten(a)[0] == [1, 2]
@@ -172,7 +172,7 @@ def test_freeze_with_ops():
     hash(t)
 
     t = Test()
-    treelib.tree_map(unfreeze, t, is_leaf=is_frozen)
+    treelib.tree_map(unfreeze, t, is_leaf=is_masked)
     treelib.tree_map(freeze, t)
 
     @autoinit
@@ -238,7 +238,7 @@ def test_freeze_nondiff():
     assert treelib.tree_flatten(t)[0] == ["a"]
     assert treelib.tree_flatten(treelib.tree_map(freeze, t))[0] == []
     assert treelib.tree_flatten(
-        (treelib.tree_map(freeze, t)).at["b"].apply(unfreeze, is_leaf=is_frozen)
+        (treelib.tree_map(freeze, t)).at["b"].apply(unfreeze, is_leaf=is_masked)
     )[0] == ["a"]
 
     @autoinit
@@ -332,17 +332,17 @@ def test_tree_unmask():
     assert treelib.tree_flatten(frozen_tree)[0] == []
 
     mask = tree == tree
-    unfrozen_tree = frozen_tree.at[mask].apply(unfreeze, is_leaf=is_frozen)
+    unfrozen_tree = frozen_tree.at[mask].apply(unfreeze, is_leaf=is_masked)
     assert treelib.tree_flatten(unfrozen_tree)[0] == [1, 2, 3]
 
     mask = tree > 1
-    unfrozen_tree = frozen_tree.at[mask].apply(unfreeze, is_leaf=is_frozen)
+    unfrozen_tree = frozen_tree.at[mask].apply(unfreeze, is_leaf=is_masked)
     assert treelib.tree_flatten(unfrozen_tree)[0] == [2, 3]
 
-    unfrozen_tree = frozen_tree.at["a"].apply(unfreeze, is_leaf=is_frozen)
+    unfrozen_tree = frozen_tree.at["a"].apply(unfreeze, is_leaf=is_masked)
     # assert treelib.tree_flatten(unfrozen_tree)[0] == [1]
 
-    # unfrozen_tree = frozen_tree.at["b"].apply(unfreeze, is_leaf=is_frozen)
+    # unfrozen_tree = frozen_tree.at["b"].apply(unfreeze, is_leaf=is_masked)
     # assert treelib.tree_flatten(unfrozen_tree)[0] == [2, 3]
 
 
@@ -362,11 +362,11 @@ def test_tree_mask_unfreeze():
 
     mask = tree == tree
     frozen_tree = tree.at[...].apply(freeze)
-    unfrozen_tree = frozen_tree.at[mask].apply(unfreeze, is_leaf=is_frozen)
+    unfrozen_tree = frozen_tree.at[mask].apply(unfreeze, is_leaf=is_masked)
     assert treelib.tree_flatten(unfrozen_tree)[0] == [1, 2, 3]
 
     # frozen_tree = tree.at["a"].apply(freeze)
-    # unfrozen_tree = frozen_tree.at["a"].apply(unfreeze, is_leaf=is_frozen)
+    # unfrozen_tree = frozen_tree.at["a"].apply(unfreeze, is_leaf=is_masked)
     # assert treelib.tree_flatten(unfrozen_tree)[0] == [1, 2, 3]
 
 
@@ -411,7 +411,6 @@ def test_tree_mask_tree_unmask():
     assert treelib.tree_flatten(tree_mask(tree, mask_func))[0] == [2, 3.0]
 
     assert freeze(freeze(1)) == freeze(1)
-
 
     with pytest.raises(TypeError):
         tree_mask({"a": 1}, cond=1.0)

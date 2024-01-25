@@ -7,8 +7,6 @@
 .. autoclass:: TreeClass 
     :members:
         at
-.. autoclass:: Partial
-.. autoclass:: partial
 .. autoclass:: AtIndexer
     :members:
         get,
@@ -27,5 +25,4 @@
 .. autofunction:: field
 .. autofunction:: fields
 .. autofunction:: bcmap
-.. autofunction:: is_tree_equal
 .. autofunction:: value_and_tree

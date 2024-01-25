@@ -116,62 +116,11 @@ class Static(Generic[T]):
         treelib.register_static(klass)
 
 
-class Partial(Static):
-    """``Partial`` function with support for positional partial application.
-
-    Args:
-        func: The function to be partially applied.
-        args: Positional arguments to be partially applied. use ``...`` as a
-            placeholder for positional arguments.
-        kwargs: Keyword arguments to be partially applied.
-
-    Example:
-        >>> import sepes as sp
-        >>> def f(a, b, c):
-        ...     print(f"a: {a}, b: {b}, c: {c}")
-        ...     return a + b + c
-
-        >>> # positional arguments using `...` placeholder
-        >>> f_a = sp.Partial(f, ..., 2, 3)
-        >>> f_a(1)
-        a: 1, b: 2, c: 3
-        6
-
-        >>> # keyword arguments
-        >>> f_b = sp.Partial(f, b=2, c=3)
-        >>> f_a(1)
-        a: 1, b: 2, c: 3
-        6
-
-    Note:
-        - The ``...`` is used to indicate a placeholder for positional arguments.
-        - https://stackoverflow.com/a/7811270
-    """
-
-    __slots__ = ["func", "args", "keywords"]  # type: ignore
-
-    def __init__(self, func: Callable[..., Any], *args: Any, **kwargs: Any):
-        self.func = func
-        self.args = args
-        self.keywords = kwargs
-
+class partial(ft.partial):
     def __call__(self, *args: Any, **kwargs: Any) -> Any:
         iargs = iter(args)
         args = (next(iargs) if arg is ... else arg for arg in self.args)  # type: ignore
         return self.func(*args, *iargs, **{**self.keywords, **kwargs})
-
-    def __repr__(self) -> str:
-        return f"Partial({self.func}, {self.args}, {self.keywords})"
-
-    def __hash__(self) -> int:
-        return tree_hash(self)
-
-    def __eq__(self, other: Any) -> bool:
-        return is_tree_equal(self, other)
-
-
-# to match python
-partial = Partial
 
 
 def bcmap(

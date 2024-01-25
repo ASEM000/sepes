@@ -29,8 +29,10 @@ from sepes._src.code_build import (
     fields,
 )
 from sepes._src.tree_base import TreeClass
-from sepes._src.tree_mask import freeze
-from sepes._src.tree_util import Partial, is_tree_equal, value_and_tree
+from sepes._src.tree_util import partial, is_tree_equal, value_and_tree
+from sepes._src.tree_mask import tree_mask
+
+freeze = lambda x: tree_mask(x, cond=lambda _:True)
 
 test_arraylib = os.environ.get("SEPES_TEST_ARRAYLIB", "numpy")
 if test_arraylib == "jax":
@@ -522,10 +524,10 @@ def test_partial():
     def f(a, b, c):
         return a + b + c
 
-    f_a = Partial(f, ..., 2, 3)
+    f_a = partial(f, ..., 2, 3)
     assert f_a(1) == 6
 
-    f_b = Partial(f, 1, ..., 3)
+    f_b = partial(f, 1, ..., 3)
     assert f_b(2) == 6
 
     assert f_b == f_b

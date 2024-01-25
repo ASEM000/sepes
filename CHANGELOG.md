@@ -25,7 +25,16 @@
     └────┴───────────┴─────┴───────┘
     ```
 
-- Reduce the API and remove `tree_graph` (for graphviz) and `tree_mermaid` from the pprint API.
+- Reduce the API and remove:
+  -  `tree_graph` (for graphviz)
+  -  `tree_mermaid` from the pprint API.
+  -  `Partial/partial`
+  -  `is_tree_equal`
+  -  `freeze`  Use `ft.partial(tree_mask, cond=lambda _: True)` instead.
+  -  `unfreeze` Use `ft.partial(tree_unmask, cond=lambda _: True)` instead.
+  
+- `tree_mask`/`tree_unmask` now accepts only callable `cond` argument.
+- Rename `is_frozen` to `is_masked`
 
 ## V0.11.3
 

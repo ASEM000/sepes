@@ -31,7 +31,6 @@ import sepes._src.backend.arraylib as arraylib
 from sepes._src.backend import is_package_avaiable
 from sepes._src.tree_util import (
     Node,
-    Partial,
     construct_tree,
     is_path_leaf_depth_factory,
     tree_type_path_leaves,
@@ -178,7 +177,6 @@ def _(func: Callable, **spec: Unpack[PPSpec]) -> str:
     return f"{name}({', '.join(header)})"
 
 
-@tree_str.def_type(Partial)
 @tree_str.def_type(ft.partial)
 def _(node: ft.partial, **spec: Unpack[PPSpec]) -> str:
     func = tree_str.pp(node.func, **spec)
@@ -242,7 +240,6 @@ for ndarray in arraylib.ndarrays:
         return f"{base}(μ={mean}, σ={std}, ∈{interval})"
 
 
-@tree_repr.def_type(Partial)
 @tree_repr.def_type(ft.partial)
 def _(node: ft.partial, **spec: Unpack[PPSpec]) -> str:
     func = tree_repr.pp(node.func, **spec)

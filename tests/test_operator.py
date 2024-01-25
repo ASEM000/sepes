@@ -22,9 +22,12 @@ import pytest
 from sepes._src.backend import backend
 from sepes._src.code_build import autoinit, field
 from sepes._src.tree_base import TreeClass
-from sepes._src.tree_mask import freeze
 from sepes._src.tree_util import bcmap, is_tree_equal, leafwise
 import os
+
+from sepes._src.tree_mask import tree_mask
+
+freeze = lambda x: tree_mask(x, cond=lambda _:True)
 
 test_arraylib = os.environ.get("SEPES_TEST_ARRAYLIB", "numpy")
 if test_arraylib == "jax":

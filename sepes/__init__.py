@@ -17,12 +17,10 @@ from sepes._src.code_build import autoinit, field, fields
 from sepes._src.tree_base import TreeClass
 from sepes._src.tree_index import AtIndexer, BaseKey, at
 from sepes._src.tree_mask import (
-    freeze,
-    is_frozen,
+    is_masked,
     is_nondiff,
     tree_mask,
     tree_unmask,
-    unfreeze,
 )
 from sepes._src.tree_pprint import (
     tree_diagram,
@@ -31,18 +29,14 @@ from sepes._src.tree_pprint import (
     tree_summary,
 )
 from sepes._src.tree_util import (
-    Partial,
     bcmap,
-    is_tree_equal,
     leafwise,
-    partial,
     value_and_tree,
 )
 
 __all__ = (
     # general utils
     "TreeClass",
-    "is_tree_equal",
     "field",
     "fields",
     "autoinit",
@@ -53,9 +47,7 @@ __all__ = (
     "tree_summary",
     # masking utils
     "is_nondiff",
-    "is_frozen",
-    "freeze",
-    "unfreeze",
+    "is_masked",
     "tree_unmask",
     "tree_mask",
     # indexing utils
@@ -64,8 +56,6 @@ __all__ = (
     "BaseKey",
     # tree utils
     "bcmap",
-    "Partial",
-    "partial",
     "leafwise",
     "value_and_tree",
     # backend utils
@@ -76,4 +66,3 @@ __version__ = "0.11.4"
 
 AtIndexer.__module__ = "sepes"
 TreeClass.__module__ = "sepes"
-Partial.__module__ = "sepes"

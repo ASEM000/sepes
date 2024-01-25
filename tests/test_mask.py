@@ -21,16 +21,17 @@ from sepes._src.backend import backend, treelib
 from sepes._src.code_build import autoinit
 from sepes._src.tree_base import TreeClass
 from sepes._src.tree_mask import (
-    freeze,
-    is_frozen,
+    is_masked,
     tree_mask,
     tree_unmask,
-    unfreeze,
 )
+import functools as ft
 import os
 from sepes._src.tree_util import is_tree_equal, leafwise, tree_hash
 
 test_arraylib = os.environ.get("SEPES_TEST_ARRAYLIB", "numpy")
+freeze = ft.partial(tree_mask, cond=lambda _: True)
+unfreeze = ft.partial(tree_unmask, cond=lambda _: True)
 
 if test_arraylib == "jax":
     import jax.numpy as arraylib
@@ -54,9 +55,9 @@ def test_freeze_unfreeze():
     b = a.at[...].apply(freeze)
     c = (
         a.at["a"]
-        .apply(unfreeze, is_leaf=is_frozen)
+        .apply(unfreeze, is_leaf=is_masked)
         .at["b"]
-        .apply(unfreeze, is_leaf=is_frozen)
+        .apply(unfreeze, is_leaf=is_masked)
     )
 
     assert treelib.tree_flatten(a)[0] == [1, 2]
@@ -83,9 +84,9 @@ def test_freeze_unfreeze():
     b = treelib.tree_map(freeze, a)
     c = (
         a.at["a"]
-        .apply(unfreeze, is_leaf=is_frozen)
+        .apply(unfreeze, is_leaf=is_masked)
         .at["b"]
-        .apply(unfreeze, is_leaf=is_frozen)
+        .apply(unfreeze, is_leaf=is_masked)
     )
 
     assert treelib.tree_flatten(a)[0] == [1, 2]
@@ -171,7 +172,7 @@ def test_freeze_with_ops():
     hash(t)
 
     t = Test()
-    treelib.tree_map(unfreeze, t, is_leaf=is_frozen)
+    treelib.tree_map(unfreeze, t, is_leaf=is_masked)
     treelib.tree_map(freeze, t)
 
     @autoinit
@@ -237,7 +238,7 @@ def test_freeze_nondiff():
     assert treelib.tree_flatten(t)[0] == ["a"]
     assert treelib.tree_flatten(treelib.tree_map(freeze, t))[0] == []
     assert treelib.tree_flatten(
-        (treelib.tree_map(freeze, t)).at["b"].apply(unfreeze, is_leaf=is_frozen)
+        (treelib.tree_map(freeze, t)).at["b"].apply(unfreeze, is_leaf=is_masked)
     )[0] == ["a"]
 
     @autoinit
@@ -331,17 +332,17 @@ def test_tree_unmask():
     assert treelib.tree_flatten(frozen_tree)[0] == []
 
     mask = tree == tree
-    unfrozen_tree = frozen_tree.at[mask].apply(unfreeze, is_leaf=is_frozen)
+    unfrozen_tree = frozen_tree.at[mask].apply(unfreeze, is_leaf=is_masked)
     assert treelib.tree_flatten(unfrozen_tree)[0] == [1, 2, 3]
 
     mask = tree > 1
-    unfrozen_tree = frozen_tree.at[mask].apply(unfreeze, is_leaf=is_frozen)
+    unfrozen_tree = frozen_tree.at[mask].apply(unfreeze, is_leaf=is_masked)
     assert treelib.tree_flatten(unfrozen_tree)[0] == [2, 3]
 
-    unfrozen_tree = frozen_tree.at["a"].apply(unfreeze, is_leaf=is_frozen)
+    unfrozen_tree = frozen_tree.at["a"].apply(unfreeze, is_leaf=is_masked)
     # assert treelib.tree_flatten(unfrozen_tree)[0] == [1]
 
-    # unfrozen_tree = frozen_tree.at["b"].apply(unfreeze, is_leaf=is_frozen)
+    # unfrozen_tree = frozen_tree.at["b"].apply(unfreeze, is_leaf=is_masked)
     # assert treelib.tree_flatten(unfrozen_tree)[0] == [2, 3]
 
 
@@ -361,11 +362,11 @@ def test_tree_mask_unfreeze():
 
     mask = tree == tree
     frozen_tree = tree.at[...].apply(freeze)
-    unfrozen_tree = frozen_tree.at[mask].apply(unfreeze, is_leaf=is_frozen)
+    unfrozen_tree = frozen_tree.at[mask].apply(unfreeze, is_leaf=is_masked)
     assert treelib.tree_flatten(unfrozen_tree)[0] == [1, 2, 3]
 
     # frozen_tree = tree.at["a"].apply(freeze)
-    # unfrozen_tree = frozen_tree.at["a"].apply(unfreeze, is_leaf=is_frozen)
+    # unfrozen_tree = frozen_tree.at["a"].apply(unfreeze, is_leaf=is_masked)
     # assert treelib.tree_flatten(unfrozen_tree)[0] == [1, 2, 3]
 
 
@@ -411,10 +412,8 @@ def test_tree_mask_tree_unmask():
 
     assert freeze(freeze(1)) == freeze(1)
 
-    assert tree_mask({"a": 1}, mask={"a": True}) == {"a": freeze(1)}
-
-    with pytest.raises(ValueError):
-        tree_mask({"a": 1}, mask=1.0)
+    with pytest.raises(TypeError):
+        tree_mask({"a": 1}, cond=1.0)
 
     assert copy.copy(freeze(1)) == freeze(1)
 
@@ -424,7 +423,7 @@ def test_tree_mask_tree_unmask():
 
 @pytest.mark.skipif(backend == "default", reason="no array backend installed")
 def test_array_tree_mask_tree_unmask():
-    frozen_array = tree_mask(arraylib.ones((5, 5)), mask=lambda _: True)
+    frozen_array = tree_mask(arraylib.ones((5, 5)), cond=lambda _: True)
 
     assert frozen_array == frozen_array
     assert not (frozen_array == freeze(arraylib.ones((5, 6))))

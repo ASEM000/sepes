@@ -29,8 +29,6 @@ from sepes._src.tree_base import TreeClass
 from sepes._src.tree_pprint import (
     _table,
     tree_diagram,
-    tree_graph,
-    tree_mermaid,
     tree_repr,
     tree_str,
     tree_summary,
@@ -166,20 +164,6 @@ def test_tree_diagram():
 
 
 @pytest.mark.skipif(backend != "jax", reason="jax is not installed")
-def test_tree_mermaid():
-    assert (
-        re.sub(r"id\d*", "***", tree_mermaid(r1, depth=1))
-        # trunk-ignore(flake8/E501)
-        == 'flowchart LR\n    ***("<b>Repr1</b>")\n    *** --- ***("<b>.a=1</b>")\n    *** --- ***("<b>.b=string</b>")\n    *** --- ***("<b>.c=1.0</b>")\n    *** --- ***("<b>.d=aaaaa</b>")\n    *** --- ***("<b>.e=[...]</b>")\n    *** --- ***("<b>.f={...}</b>")\n    *** --- ***("<b>.g=dict(...)</b>")\n    *** --- ***("<b>.h=f32[5,1](μ=1.00, σ=0.00, ∈[1.00,1.00])</b>")\n    *** --- ***("<b>.i=f32[1,6](μ=1.00, σ=0.00, ∈[1.00,1.00])</b>")\n    *** --- ***("<b>.j=f32[1,1,4,5](μ=1.00, σ=0.00, ∈[1.00,1.00])</b>")\n    *** --- ***("<b>.k=(...)</b>")\n    *** --- ***("<b>.l=a(...)</b>")\n    *** --- ***("<b>.m=f32[5,5](μ=1.00, σ=0.00, ∈[1.00,1.00])</b>")\n    *** --- ***("<b>.n=bool[]</b>")\n    *** --- ***("<b>.o=c64[2]</b>")'
-    )
-    assert (
-        re.sub(r"id\d*", "***", tree_mermaid(r1, depth=2))
-        # trunk-ignore(flake8/E501)
-        == 'flowchart LR\n    ***("<b>Repr1</b>")\n    *** --- ***("<b>.a=1</b>")\n    *** --- ***("<b>.b=string</b>")\n    *** --- ***("<b>.c=1.0</b>")\n    *** --- ***("<b>.d=aaaaa</b>")\n    *** --- ***("<b>.e:list</b>")\n    *** --- ***("<b>[0]=10</b>")\n    *** --- ***("<b>[1]=10</b>")\n    *** --- ***("<b>[2]=10</b>")\n    *** --- ***("<b>[3]=10</b>")\n    *** --- ***("<b>[4]=10</b>")\n    *** --- ***("<b>.f={...}</b>")\n    *** --- ***("<b>.g:dict</b>")\n    *** --- ***("<b>[\'a\']=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa</b>")\n    *** --- ***("<b>[\'b\']=bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb</b>")\n    *** --- ***("<b>[\'c\']=f32[5,5](μ=1.00, σ=0.00, ∈[1.00,1.00])</b>")\n    *** --- ***("<b>.h=f32[5,1](μ=1.00, σ=0.00, ∈[1.00,1.00])</b>")\n    *** --- ***("<b>.i=f32[1,6](μ=1.00, σ=0.00, ∈[1.00,1.00])</b>")\n    *** --- ***("<b>.j=f32[1,1,4,5](μ=1.00, σ=0.00, ∈[1.00,1.00])</b>")\n    *** --- ***("<b>.k:tuple</b>")\n    *** --- ***("<b>[0]=1</b>")\n    *** --- ***("<b>[1]=2</b>")\n    *** --- ***("<b>[2]=3</b>")\n    *** --- ***("<b>.l:a</b>")\n    *** --- ***("<b>.b=1</b>")\n    *** --- ***("<b>.c=2</b>")\n    *** --- ***("<b>.m=f32[5,5](μ=1.00, σ=0.00, ∈[1.00,1.00])</b>")\n    *** --- ***("<b>.n=bool[]</b>")\n    *** --- ***("<b>.o=c64[2]</b>")'
-    )
-
-
-@pytest.mark.skipif(backend != "jax", reason="jax is not installed")
 def test_misc():
     x = (1, 2, 3)
     assert tree_repr(x) == tree_str(x) == "(1, 2, 3)"
@@ -251,16 +235,6 @@ def test_invalid_depth():
         tree_diagram(1, depth="a")
     with pytest.raises(TypeError):
         tree_summary(1, depth="a")
-    with pytest.raises(TypeError):
-        tree_mermaid(1, depth="a")
-
-
-@pytest.mark.skipif(backend != "jax", reason="jax is not installed")
-def test_tree_graph():
-    assert (
-        re.sub(r"\b\d{10,}", "***", tree_graph(r1))
-        == 'digraph G {\n    *** [label="Repr1", shape=box];\n    *** [label=".a=1", shape=box];\n    *** -> ***;\n    *** [label=".b=string", shape=box];\n    *** -> ***;\n    *** [label=".c=1.0", shape=box];\n    *** -> ***;\n    *** [label=".d=aaaaa", shape=box];\n    *** -> ***;\n    *** [label=".e:list", shape=box];\n    *** -> ***;\n    *** [label="[0]=10", shape=box];\n    *** -> ***;\n    *** [label="[1]=10", shape=box];\n    *** -> ***;\n    *** [label="[2]=10", shape=box];\n    *** -> ***;\n    *** [label="[3]=10", shape=box];\n    *** -> ***;\n    *** [label="[4]=10", shape=box];\n    *** -> ***;\n    *** [label=".f={...}", shape=box];\n    *** -> ***;\n    *** [label=".g:dict", shape=box];\n    *** -> ***;\n    *** [label="[\'a\']=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", shape=box];\n    *** -> ***;\n    *** [label="[\'b\']=bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb", shape=box];\n    *** -> ***;\n    *** [label="[\'c\']=f32[5,5](μ=1.00, σ=0.00, ∈[1.00,1.00])", shape=box];\n    *** -> ***;\n    *** [label=".h=f32[5,1](μ=1.00, σ=0.00, ∈[1.00,1.00])", shape=box];\n    *** -> ***;\n    *** [label=".i=f32[1,6](μ=1.00, σ=0.00, ∈[1.00,1.00])", shape=box];\n    *** -> ***;\n    *** [label=".j=f32[1,1,4,5](μ=1.00, σ=0.00, ∈[1.00,1.00])", shape=box];\n    *** -> ***;\n    *** [label=".k:tuple", shape=box];\n    *** -> ***;\n    *** [label="[0]=1", shape=box];\n    *** -> ***;\n    *** [label="[1]=2", shape=box];\n    *** -> ***;\n    *** [label="[2]=3", shape=box];\n    *** -> ***;\n    *** [label=".l:a", shape=box];\n    *** -> ***;\n    *** [label=".b=1", shape=box];\n    *** -> ***;\n    *** [label=".c=2", shape=box];\n    *** -> ***;\n    *** [label=".m=f32[5,5](μ=1.00, σ=0.00, ∈[1.00,1.00])", shape=box];\n    *** -> ***;\n    *** [label=".n=bool[]", shape=box];\n    *** -> ***;\n    *** [label=".o=c64[2]", shape=box];\n    *** -> ***;\n}'
-    )
 
 
 @pytest.mark.skipif(backend != "jax", reason="jax is not installed")
@@ -282,11 +256,10 @@ def test_tracer_repr():
 def test_jax_sharding_tree_summary():
     import jax
     from jax.sharding import NamedSharding, PartitionSpec, Mesh
-    import jax.sharding as js
     import numpy as np
 
     x = jax.numpy.ones([4 * 4, 2 * 2])
-    mesh = js.Mesh(devices=np.array(jax.devices()).reshape(4, 2), axis_names=["i", "j"])
+    mesh = Mesh(devices=np.array(jax.devices()).reshape(4, 2), axis_names=["i", "j"])
     sharding = NamedSharding(mesh=mesh, spec=PartitionSpec("i", "j"))
     x = jax.device_put(x, device=sharding)
     assert (

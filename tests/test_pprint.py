@@ -21,6 +21,7 @@ from typing import Any
 
 import pytest
 import os
+
 test_arraylib = os.environ.get("SEPES_TEST_ARRAYLIB", "numpy")
 backend = os.environ.get("SEPES_BACKEND", "jax")
 from sepes._src.code_build import autoinit, field
@@ -290,5 +291,5 @@ def test_jax_sharding_tree_summary():
     x = jax.device_put(x, device=sharding)
     assert (
         tree_summary(x)
-        == "┌────┬────────────────┬─────┬───────┐\n│Name│Type            │Count│Size   │\n├────┼────────────────┼─────┼───────┤\n│Σ   │G:f32[16,4]│64   │256.00B│\n│    │S:f32[4,2] │     │       │\n└────┴────────────────┴─────┴───────┘"
+        == "┌────┬───────────┬─────┬───────┐\n│Name│Type       │Count│Size   │\n├────┼───────────┼─────┼───────┤\n│Σ   │G:f32[16,4]│64   │256.00B│\n│    │S:f32[4,2] │     │       │\n└────┴───────────┴─────┴───────┘"
     )

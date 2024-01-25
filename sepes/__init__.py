@@ -29,18 +29,14 @@ from sepes._src.tree_pprint import (
     tree_summary,
 )
 from sepes._src.tree_util import (
-    Partial,
     bcmap,
-    is_tree_equal,
     leafwise,
-    partial,
     value_and_tree,
 )
 
 __all__ = (
     # general utils
     "TreeClass",
-    "is_tree_equal",
     "field",
     "fields",
     "autoinit",
@@ -60,8 +56,6 @@ __all__ = (
     "BaseKey",
     # tree utils
     "bcmap",
-    "Partial",
-    "partial",
     "leafwise",
     "value_and_tree",
     # backend utils
@@ -72,4 +66,3 @@ __version__ = "0.11.4"
 
 AtIndexer.__module__ = "sepes"
 TreeClass.__module__ = "sepes"
-Partial.__module__ = "sepes"

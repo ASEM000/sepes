@@ -779,4 +779,4 @@ if is_package_avaiable("jax"):
         if global_shape == shard_shape:
             return global_info
         shard_info = tree_repr(ShapeDTypePP(shard_shape, dtype))
-        return f"GLOBAL:{global_info}\nSHARD :{shard_info}"
+        return f"G:{global_info}\nS:{shard_info}"

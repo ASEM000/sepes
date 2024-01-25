@@ -765,3 +765,18 @@ if is_package_avaiable("jax"):
         dtype = node.aval.dtype
         string = tree_repr.dispatch(ShapeDTypePP(shape, dtype), **spec)
         return f"Tracer({string})"
+
+    # handle the sharding info if it is sharded
+    @tree_summary.def_type(jax.Array)
+    def _(node: Any) -> str:
+        """Return the type repr of the node."""
+        # global shape
+        global_shape = arraylib.shape(node)
+        shard_shape = node.sharding.shard_shape(global_shape)
+        dtype = arraylib.dtype(node)
+        global_info = tree_repr(ShapeDTypePP(global_shape, dtype))
+
+        if global_shape == shard_shape:
+            return global_info
+        shard_info = tree_repr(ShapeDTypePP(shard_shape, dtype))
+        return f"GLOBAL:{global_info}\nSHARD :{shard_info}"

@@ -1,5 +1,32 @@
 # Changelog
 
+## V0.11.4
+
+- Add sharding info in `tree_summary`, `G` for global, `S` for sharded shape.
+  
+    ```python
+    import jax
+    import sepes as sp
+    from jax.sharding import Mesh, NamedSharding as N, PartitionSpec as P
+    import numpy as np
+    import os
+    os.environ["XLA_FLAGS"] = "--xla_force_host_platform_device_count=8"
+    x = jax.numpy.ones([4 * 4, 2 * 2])
+    mesh = Mesh(devices=np.array(jax.devices()).reshape(4, 2), axis_names=["i", "j"])
+    sharding = N(mesh=mesh, spec=P("i", "j"))
+    x = jax.device_put(x, device=sharding)
+
+    print(sp.tree_summary(x))
+    ┌────┬───────────┬─────┬───────┐
+    │Name│Type       │Count│Size   │
+    ├────┼───────────┼─────┼───────┤
+    │Σ   │G:f32[16,4]│64   │256.00B│
+    │    │S:f32[4,2] │     │       │
+    └────┴───────────┴─────┴───────┘
+    ```
+
+- Reduce the API and remove `tree_graph` (for graphviz) and `tree_mermaid` from the pprint API.
+
 ## V0.11.3
 
 - Raise error if `autoinit` is used with `__init__` method defined.

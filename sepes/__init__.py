@@ -26,8 +26,6 @@ from sepes._src.tree_mask import (
 )
 from sepes._src.tree_pprint import (
     tree_diagram,
-    tree_graph,
-    tree_mermaid,
     tree_repr,
     tree_str,
     tree_summary,
@@ -50,8 +48,6 @@ __all__ = (
     "autoinit",
     # pprint utils
     "tree_diagram",
-    "tree_graph",
-    "tree_mermaid",
     "tree_repr",
     "tree_str",
     "tree_summary",

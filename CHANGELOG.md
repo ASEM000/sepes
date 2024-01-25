@@ -29,9 +29,9 @@
   -  `tree_graph` (for graphviz)
   -  `tree_mermaid` (mermaidjs)
   -  `Partial/partial`
-  -  `is_tree_equal`
+  -  `is_tree_equal` -> Use `bcmap(numpy.testing.assert_*)(pytree1, pytree2)` instead.
   -  `freeze`  -> Use `ft.partial(tree_mask, lambda _: True)` instead.
-  -  `unfreeze` -> Use `ft.partial(tree_unmask, lambda _: True)` instead.
+  -  `unfreeze` -> Use `tree_unmask` instead.
 
 -  Implement `__format__` for `TreeClass` for shorter syntax representation:
    -  `f"{tree:3r}"` is tree **r**epr of depth = 3

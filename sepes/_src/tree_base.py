@@ -172,35 +172,6 @@ class TreeClass(metaclass=TreeClassMeta):
         Tree(a=1, b=None)
 
     Note:
-        - Under ``jax.tree_util.***`` or ``optree`` all :class:`.TreeClass`
-          attributes are treated as leaves.
-        - To hide/ignore a specific attribute from the tree leaves, during
-          ``jax.tree_util.***`` operations, freeze the leaf using :func:`.freeze`
-          or :func:`.tree_mask`.
-
-        >>> # freeze(exclude) a leaf from the tree leaves:
-        >>> import jax
-        >>> import sepes as sp
-        >>> @sp.autoinit
-        ... class Tree(sp.TreeClass):
-        ...     a:int = 1
-        ...     b:float = 2.0
-        >>> tree = Tree()
-        >>> tree = tree.at["a"].apply(sp.freeze)
-        >>> jax.tree_util.tree_leaves(tree)
-        [2.0]
-
-        >>> # undo the freeze
-        >>> tree = tree.at["a"].apply(sp.unfreeze, is_leaf=sp.is_frozen)
-        >>> jax.tree_util.tree_leaves(tree)
-        [1, 2.0]
-
-        >>> # using `tree_mask` to exclude a leaf from the tree leaves
-        >>> freeze_mask = Tree(a=True, b=False)
-        >>> jax.tree_util.tree_leaves(sp.tree_mask(tree, freeze_mask))
-        [2.0]
-
-    Note:
         ``AttributeError`` is raised, If a method that mutates the instance
         is called directly. Instead use :func:`.value_and_tree` to call
         the method on a copy of the tree. :func:`.value_and_tree` calls the function

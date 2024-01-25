@@ -30,7 +30,7 @@ T = TypeVar("T")
 MaskType = Union[T, Callable[[Any], bool]]
 
 
-class _FrozenError(NamedTuple):
+class _MaskedError(NamedTuple):
     opname: str
 
     def __call__(self, *a, **k):
@@ -38,7 +38,7 @@ class _FrozenError(NamedTuple):
             f"Cannot apply `{self.opname}` operation to a frozen object "
             f"{', '.join(map(str, a))} "
             f"{', '.join(k + '=' + str(v) for k, v in k.items())}.\n"
-            "Unfreeze the object first by unmasking the frozen mask:\n"
+            "Unmask the object first by unmasking the frozen mask:\n"
             "Example:\n"
             ">>> import jax\n"
             ">>> import sepes as sp\n"
@@ -46,7 +46,7 @@ class _FrozenError(NamedTuple):
         )
 
 
-class _FrozenBase(Static):
+class _MaskBase(Static):
     # the objective of this class is to wrap a pytree node with a custom wrapper
     # that yields no leaves when flattened. This is useful to avoid updating
     # the node by effectivly *hiding it* from function transformations that operates
@@ -69,33 +69,33 @@ class _FrozenBase(Static):
     def __str__(self) -> str:
         return "#" + tree_str(self.__wrapped__)
 
-    def __copy__(self) -> _FrozenBase[T]:
+    def __copy__(self) -> _MaskBase[T]:
         return type(self)(tree_copy(self.__wrapped__))
 
     # raise helpful error message when trying to interact with frozen object
-    __add__ = __radd__ = __iadd__ = _FrozenError("+")
-    __sub__ = __rsub__ = __isub__ = _FrozenError("-")
-    __mul__ = __rmul__ = __imul__ = _FrozenError("*")
-    __matmul__ = __rmatmul__ = __imatmul__ = _FrozenError("@")
-    __truediv__ = __rtruediv__ = __itruediv__ = _FrozenError("/")
-    __floordiv__ = __rfloordiv__ = __ifloordiv__ = _FrozenError("//")
-    __mod__ = __rmod__ = __imod__ = _FrozenError("%")
-    __pow__ = __rpow__ = __ipow__ = _FrozenError("**")
-    __lshift__ = __rlshift__ = __ilshift__ = _FrozenError("<<")
-    __rshift__ = __rrshift__ = __irshift__ = _FrozenError(">>")
-    __and__ = __rand__ = __iand__ = _FrozenError("and")
-    __xor__ = __rxor__ = __ixor__ = _FrozenError("")
-    __or__ = __ror__ = __ior__ = _FrozenError("or")
-    __neg__ = __pos__ = __abs__ = __invert__ = _FrozenError("unary operation")
-    __call__ = _FrozenError("__call__")
+    __add__ = __radd__ = __iadd__ = _MaskedError("+")
+    __sub__ = __rsub__ = __isub__ = _MaskedError("-")
+    __mul__ = __rmul__ = __imul__ = _MaskedError("*")
+    __matmul__ = __rmatmul__ = __imatmul__ = _MaskedError("@")
+    __truediv__ = __rtruediv__ = __itruediv__ = _MaskedError("/")
+    __floordiv__ = __rfloordiv__ = __ifloordiv__ = _MaskedError("//")
+    __mod__ = __rmod__ = __imod__ = _MaskedError("%")
+    __pow__ = __rpow__ = __ipow__ = _MaskedError("**")
+    __lshift__ = __rlshift__ = __ilshift__ = _MaskedError("<<")
+    __rshift__ = __rrshift__ = __irshift__ = _MaskedError(">>")
+    __and__ = __rand__ = __iand__ = _MaskedError("and")
+    __xor__ = __rxor__ = __ixor__ = _MaskedError("")
+    __or__ = __ror__ = __ior__ = _MaskedError("or")
+    __neg__ = __pos__ = __abs__ = __invert__ = _MaskedError("unary operation")
+    __call__ = _MaskedError("__call__")
 
 
-@tree_summary.def_type(_FrozenBase)
+@tree_summary.def_type(_MaskBase)
 def _(node) -> str:
     return f"#{tree_summary.type_dispatcher(node.__wrapped__)}"
 
 
-class _FrozenHashable(_FrozenBase):
+class _FrozenHashable(_MaskBase):
     def __hash__(self) -> int:
         return tree_hash(self.__wrapped__)
 
@@ -105,7 +105,7 @@ class _FrozenHashable(_FrozenBase):
         return is_tree_equal(self.__wrapped__, rhs.__wrapped__)
 
 
-class _FrozenArray(_FrozenBase):
+class _FrozenArray(_MaskBase):
     # wrap arrays with a custom wrapper that implements hash and equality
     # using the wrapped array's bytes representation and sha256 hash function
     # this is useful to select some array to hold without updating in the process
@@ -126,98 +126,51 @@ class _FrozenArray(_FrozenBase):
         return arraylib.all(lhs == rhs)
 
 
-def freeze(value: T) -> _FrozenBase[T]:
-    """Freeze a value to avoid updating it by through function transformations.
-
-    Args:
-        value: A value to freeze.
-
-    Note:
-        - :func:`.freeze` is idempotent, i.e. ``freeze(freeze(x)) == freeze(x)``.
-
-    Example:
-        >>> import jax
-        >>> import sepes as sp
-        >>> import jax.tree_util as jtu
-        >>> # Usage with `jax.tree_util.tree_leaves`
-        >>> # no leaves for a wrapped value
-        >>> jtu.tree_leaves(sp.freeze(2.))
-        []
-
-        >>> # retrieve the frozen wrapper value using `is_leaf=sp.is_frozen`
-        >>> jtu.tree_leaves(sp.freeze(2.), is_leaf=sp.is_frozen)
-        [#2.0]
-
-        >>> # Usage with `jax.tree_util.tree_map`
-        >>> a= [1,2,3]
-        >>> a[1] = sp.freeze(a[1])
-        >>> jtu.tree_map(lambda x:x+100, a)
-        [101, #2, 103]
-    """
+def mask(value: T) -> _MaskBase[T]:
     # dispatching is used to customize the type of the wrapper based on the type
     # of the value. For instance, hashable values dont need custom hash and
     # equality implementations, so they are wrapped with a simpler wrapper.
     # this approach avoids type logic in the wrapper equality and hash methods,
     # thus effectively improving performance of the wrapper.
-    return freeze.type_dispatcher(value)
+    return mask.type_dispatcher(value)
 
 
-freeze.type_dispatcher = ft.singledispatch(_FrozenHashable)
-freeze.def_type = freeze.type_dispatcher.register
+mask.type_dispatcher = ft.singledispatch(_FrozenHashable)
+mask.def_type = mask.type_dispatcher.register
 
 
 for ndarray in arraylib.ndarrays:
 
-    @freeze.def_type(ndarray)
-    def freeze_array(value: T) -> _FrozenArray[T]:
+    @mask.def_type(ndarray)
+    def mask_array(value: T) -> _FrozenArray[T]:
         # wrap arrays with a custom wrapper that implements hash and equality
         # arrays can be hashed by converting them to bytes and hashing the bytes
         return _FrozenArray(value)
 
 
-@freeze.def_type(_FrozenBase)
-def _(value: _FrozenBase[T]) -> _FrozenBase[T]:
-    # idempotent freeze operation, meaning that freeze(freeze(x)) == freeze(x)
+@mask.def_type(_MaskBase)
+def _(value: _MaskBase[T]) -> _MaskBase[T]:
+    # idempotent mask operation, meaning that mask(mask(x)) == mask(x)
     # this is useful to avoid recursive unwrapping of frozen values, plus its
-    # meaningless to freeze a frozen value.
+    # meaningless to mask a frozen value.
     return value
 
 
-def is_frozen(value: Any) -> bool:
+def is_masked(value: Any) -> bool:
     """Returns True if the value is a frozen wrapper."""
-    return isinstance(value, _FrozenBase)
+    return isinstance(value, _MaskBase)
 
 
-def unfreeze(value: T) -> T:
-    """Unfreeze :func:`.freeze` value, otherwise return the value itself.
-
-    Args:
-        value: A value to unfreeze.
-
-    Note:
-        - use ``is_leaf=sp.is_frozen`` with ``tree_map`` to unfreeze a tree.**
-
-    Example:
-        >>> import sepes as sp
-        >>> import jax
-        >>> frozen_value = sp.freeze(1)
-        >>> sp.unfreeze(frozen_value)
-        1
-        >>> # usage with `jax.tree_map`
-        >>> frozen_tree = jax.tree_map(sp.freeze, {"a": 1, "b": 2})
-        >>> unfrozen_tree = jax.tree_map(sp.unfreeze, frozen_tree, is_leaf=sp.is_frozen)
-        >>> unfrozen_tree
-        {'a': 1, 'b': 2}
-    """
-    return unfreeze.type_dispatcher(value)
+def unmask(value: T) -> T:
+    return unmask.type_dispatcher(value)
 
 
-unfreeze.type_dispatcher = ft.singledispatch(lambda x: x)
-unfreeze.def_type = unfreeze.type_dispatcher.register
+unmask.type_dispatcher = ft.singledispatch(lambda x: x)
+unmask.def_type = unmask.type_dispatcher.register
 
 
-@unfreeze.def_type(_FrozenBase)
-def _(value: _FrozenBase[T]) -> T:
+@unmask.def_type(_MaskBase)
+def _(value: _MaskBase[T]) -> T:
     return getattr(value, "__wrapped__")
 
 
@@ -274,7 +227,7 @@ def _(_: float | complex) -> bool:
 
 def _tree_mask_map(
     tree: T,
-    mask: MaskType,
+    cond: MaskType,
     func: type | Callable[[Any], Any],
     *,
     is_leaf: Callable[[Any], None] | None = None,
@@ -282,70 +235,45 @@ def _tree_mask_map(
     treelib = sepes._src.backend.treelib
     # apply func to leaves satisfying mask pytree/condtion
     _, lhsdef = treelib.tree_flatten(tree, is_leaf=is_leaf)
-    _, rhsdef = treelib.tree_flatten(mask, is_leaf=is_leaf)
 
-    if (lhsdef == rhsdef) and (type(mask) is type(tree)):
-        # a tree with the same structure as tree with boolean values
-        # and also a callable.
-        def map_func(x, y):
-            return func(x) if y else x
-
-        return treelib.tree_map(map_func, tree, mask, is_leaf=is_leaf)
-
-    if isinstance(mask, Callable):
+    if not isinstance(cond, Callable):
         # a callable that accepts a leaf and returns a boolean
         # but *not* a tree with the same structure as tree with boolean values.
-        def map_func(x):
-            return func(x) if mask(x) else x
+        raise TypeError(
+            f"`cond` must be a callable that accepts a leaf and returns a boolean "
+            f" Got {cond=} and {tree=}."
+        )
 
-        return treelib.tree_map(map_func, tree, is_leaf=is_leaf)
+    def map_func(x):
+        return func(x) if cond(x) else x
 
-    raise ValueError(
-        f"`mask` must be a callable that accepts a leaf and returns a boolean "
-        f"or a tree with the same structure as tree with boolean values."
-        f" Got {mask=} and {tree=}."
-    )
+    return treelib.tree_map(map_func, tree, is_leaf=is_leaf)
 
 
 def tree_mask(
     tree: T,
-    mask: MaskType = is_nondiff,
+    cond: Callable[[Any], bool] = is_nondiff,
     *,
     is_leaf: Callable[[Any], None] | None = None,
 ):
     """Mask leaves of a pytree based on ``mask`` boolean pytree or callable.
 
+    Masked leaves are wrapped with a wrapper that yields no leaves when
+    ``tree_flatten`` is called on it.
+
     Args:
         tree: A pytree of values.
-        mask: A pytree of boolean values or a callable that accepts a leaf and
-            returns a boolean. If a leaf is ``True`` either in the mask or the
-            callable, the leaf is wrapped by with a wrapper that yields no
-            leaves when ``tree_flatten`` is called on it, otherwise
-            it is unchanged. defaults to :func:`.is_nondiff` which returns true for
+        cond: A callable that accepts a leaf and returns a boolean to mark the leaf
+            for masking. Defaults to :func:`.is_nondiff` which returns true for
             non-differentiable nodes.
         is_leaf: A callable that accepts a leaf and returns a boolean. If
             provided, it is used to determine if a value is a leaf. for example,
             ``is_leaf=lambda x: isinstance(x, list)`` will treat lists as leaves
             and will not recurse into them.
 
-    Note:
-        - Masked leaves are wrapped with a wrapper that yields no leaves when
-          ``tree_flatten`` is called on it.
-        - Masking is equivalent to applying :func:`.freeze` to the masked leaves.
-
-            >>> import sepes as sp
-            >>> import jax
-            >>> tree = [1, 2, {"a": 3, "b": 4.}]
-            >>> # mask all non-differentiable nodes by default
-            >>> def mask_if_nondiff(x):
-            ...     return sp.freeze(x) if sp.is_nondiff(x) else x
-            >>> masked_tree = jax.tree_map(mask_if_nondiff, tree)
-
-        - Use masking on tree containing non-differentiable nodes before passing
-          the tree to a ``jax`` transformation.
-
     Example:
         >>> import sepes as sp
+        >>> import jax
         >>> tree = [1, 2, {"a": 3, "b": 4.}]
         >>> # mask all non-differentiable nodes by default
         >>> masked_tree = sp.tree_mask(tree)
@@ -357,32 +285,32 @@ def tree_mask(
         [1, 2, {'a': 3, 'b': 4.0}]
 
     Example:
-        >>> # pass non-differentiable values to `jax.grad`
+        Pass non-differentiable values to ``jax.grad``
+
         >>> import sepes as sp
         >>> import jax
         >>> @jax.grad
         ... def square(tree):
         ...     tree = sp.tree_unmask(tree)
-        ...     return tree[0]**2
+        ...     return tree[0] ** 2
         >>> tree = (1., 2)  # contains a non-differentiable node
         >>> square(sp.tree_mask(tree))
         (Array(2., dtype=float32, weak_type=True), #2)
     """
-    return _tree_mask_map(tree, mask=mask, func=freeze, is_leaf=is_leaf)
+    return _tree_mask_map(tree, cond=cond, func=mask, is_leaf=is_leaf)
 
 
-def tree_unmask(tree: T, mask: MaskType = lambda _: True):
-    """Undo the masking of tree leaves according to ``mask``. defaults to unmasking all leaves.
+def tree_unmask(tree: T, cond: Callable[[Any], bool] = lambda _: True):
+    """Undo the masking of tree leaves according to ``cond``. defaults to unmasking all leaves.
 
     Args:
         tree: A pytree of values.
-        mask: A pytree of boolean values or a callable that accepts a leaf and
-            returns a boolean. If a leaf is True either in the mask or the
-            callable, the leaf is unfrozen, otherwise it is unchanged. defaults
-            unmasking all nodes.
+        cond: A callable that accepts a leaf and returns a boolean to mark the
+            leaf to be unmasked. Defaults to always unmask.
 
     Example:
         >>> import sepes as sp
+        >>> import jax
         >>> tree = [1, 2, {"a": 3, "b": 4.}]
         >>> # mask all non-differentiable nodes by default
         >>> masked_tree = sp.tree_mask(tree)
@@ -394,27 +322,19 @@ def tree_unmask(tree: T, mask: MaskType = lambda _: True):
         [1, 2, {'a': 3, 'b': 4.0}]
 
     Example:
-        >>> # pass non-differentiable values to `jax.grad`
+        Pass non-differentiable values to ``jax.grad``
+
         >>> import sepes as sp
         >>> import jax
         >>> @jax.grad
         ... def square(tree):
         ...     tree = sp.tree_unmask(tree)
-        ...     return tree[0]**2
+        ...     return tree[0] ** 2
         >>> tree = (1., 2)  # contains a non-differentiable node
         >>> square(sp.tree_mask(tree))
         (Array(2., dtype=float32, weak_type=True), #2)
-
-    Note:
-        - Unmasking is equivalent to applying :func:`.unfreeze` on the masked leaves.
-
-            >>> import sepes as sp
-            >>> import jax
-            >>> tree = [1, 2, {"a": 3, "b": 4.}]
-            >>> # unmask all nodes
-            >>> tree = jax.tree_map(sp.unfreeze, tree, is_leaf=sp.is_frozen)
     """
-    return _tree_mask_map(tree, mask=mask, func=unfreeze, is_leaf=is_frozen)
+    return _tree_mask_map(tree, cond=cond, func=unmask, is_leaf=is_masked)
 
 
 if is_package_avaiable("jax"):
@@ -424,6 +344,6 @@ if is_package_avaiable("jax"):
     # otherwise calling `freeze` inside a jax transformation on
     # a tracer will hide the tracer from jax and will cause leaked tracer
     # error.
-    @freeze.def_type(jax.core.Tracer)
+    @mask.def_type(jax.core.Tracer)
     def _(value: jax.core.Tracer) -> jax.core.Tracer:
         return value

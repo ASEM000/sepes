@@ -17,12 +17,10 @@ from sepes._src.code_build import autoinit, field, fields
 from sepes._src.tree_base import TreeClass
 from sepes._src.tree_index import AtIndexer, BaseKey, at
 from sepes._src.tree_mask import (
-    freeze,
-    is_frozen,
+    is_masked,
     is_nondiff,
     tree_mask,
     tree_unmask,
-    unfreeze,
 )
 from sepes._src.tree_pprint import (
     tree_diagram,
@@ -53,9 +51,7 @@ __all__ = (
     "tree_summary",
     # masking utils
     "is_nondiff",
-    "is_frozen",
-    "freeze",
-    "unfreeze",
+    "is_masked",
     "tree_unmask",
     "tree_mask",
     # indexing utils

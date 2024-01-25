@@ -21,16 +21,17 @@ from sepes._src.backend import backend, treelib
 from sepes._src.code_build import autoinit
 from sepes._src.tree_base import TreeClass
 from sepes._src.tree_mask import (
-    freeze,
     is_frozen,
     tree_mask,
     tree_unmask,
-    unfreeze,
 )
+import functools as ft
 import os
 from sepes._src.tree_util import is_tree_equal, leafwise, tree_hash
 
 test_arraylib = os.environ.get("SEPES_TEST_ARRAYLIB", "numpy")
+freeze = ft.partial(tree_mask, cond=lambda _: True)
+unfreeze = ft.partial(tree_unmask, cond=lambda _: True)
 
 if test_arraylib == "jax":
     import jax.numpy as arraylib
@@ -411,10 +412,9 @@ def test_tree_mask_tree_unmask():
 
     assert freeze(freeze(1)) == freeze(1)
 
-    assert tree_mask({"a": 1}, mask={"a": True}) == {"a": freeze(1)}
 
-    with pytest.raises(ValueError):
-        tree_mask({"a": 1}, mask=1.0)
+    with pytest.raises(TypeError):
+        tree_mask({"a": 1}, cond=1.0)
 
     assert copy.copy(freeze(1)) == freeze(1)
 
@@ -424,7 +424,7 @@ def test_tree_mask_tree_unmask():
 
 @pytest.mark.skipif(backend == "default", reason="no array backend installed")
 def test_array_tree_mask_tree_unmask():
-    frozen_array = tree_mask(arraylib.ones((5, 5)), mask=lambda _: True)
+    frozen_array = tree_mask(arraylib.ones((5, 5)), cond=lambda _: True)
 
     assert frozen_array == frozen_array
     assert not (frozen_array == freeze(arraylib.ones((5, 6))))

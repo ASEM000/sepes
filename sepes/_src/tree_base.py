@@ -23,7 +23,13 @@ from typing_extensions import Unpack
 
 import sepes
 from sepes._src.code_build import fields
-from sepes._src.tree_pprint import PPSpec, tree_repr, tree_str
+from sepes._src.tree_pprint import (
+    PPSpec,
+    tree_repr,
+    tree_str,
+    tree_diagram,
+    tree_summary,
+)
 from sepes._src.tree_util import is_tree_equal, tree_copy, tree_hash, value_and_tree
 from typing_extensions import Self
 from sepes._src.tree_index import AtIndexer
@@ -33,6 +39,7 @@ S = TypeVar("S")
 PyTree = Any
 EllipsisType = type(Ellipsis)  # TODO: use typing.EllipsisType when available
 _mutable_instance_registry: set[int] = set()
+_kind_to_pprinter = dict(r=tree_repr, s=tree_str, d=tree_diagram, t=tree_summary)
 
 
 def add_mutable_entry(node) -> None:
@@ -304,6 +311,11 @@ class TreeClass(metaclass=TreeClassMeta):
 
     def __eq__(self, other: Any) -> bool:
         return is_tree_equal(self, other)
+
+    def __format__(self, spec: str) -> str:
+        depth, kind = spec[:-1], spec[-1]
+        depth = int(depth) if depth else float("inf")
+        return _kind_to_pprinter[kind](self, depth=depth)
 
 
 @tree_repr.def_type(TreeClass)

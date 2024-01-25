@@ -27,14 +27,21 @@
 
 - Reduce the API and remove:
   -  `tree_graph` (for graphviz)
-  -  `tree_mermaid` from the pprint API.
+  -  `tree_mermaid` (mermaidjs)
   -  `Partial/partial`
   -  `is_tree_equal`
-  -  `freeze`  Use `ft.partial(tree_mask, cond=lambda _: True)` instead.
-  -  `unfreeze` Use `ft.partial(tree_unmask, cond=lambda _: True)` instead.
-  
-- `tree_mask`/`tree_unmask` now accepts only callable `cond` argument.
+  -  `freeze`  -> Use `ft.partial(tree_mask, lambda _: True)` instead.
+  -  `unfreeze` -> Use `ft.partial(tree_unmask, lambda _: True)` instead.
+
+-  Implement `__format__` for `TreeClass` for shorter syntax representation:
+   -  `f"{tree:3r}"` is tree **r**epr of depth = 3
+   -  `f"{tree:3s}"` is tree **s**tr of depth = 3
+   - `f"{tree:3d}"` is tree **d**iagram of depth = 3
+   -  `f"{tree:3t}`" is tree summary of depth = 3
+
+- `tree_{mask,unmask}` now accepts only callable `cond` argument.
 - Rename `is_frozen` to `is_masked`
+  - frozen could mean non-trainable array, however the masking is not only for arrays but also for other types that will be hidden from jax transformations.
 
 ## V0.11.3
 

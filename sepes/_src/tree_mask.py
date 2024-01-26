@@ -95,17 +95,17 @@ def _(node) -> str:
     return f"#{tree_summary.type_dispatcher(node.__wrapped__)}"
 
 
-class _FrozenHashable(_MaskBase):
+class _MaskedHashable(_MaskBase):
     def __hash__(self) -> int:
         return tree_hash(self.__wrapped__)
 
     def __eq__(self, rhs: Any) -> bool:
-        if not isinstance(rhs, _FrozenHashable):
+        if not isinstance(rhs, _MaskedHashable):
             return False
         return is_tree_equal(self.__wrapped__, rhs.__wrapped__)
 
 
-class _FrozenArray(_MaskBase):
+class _MaskedArray(_MaskBase):
     # wrap arrays with a custom wrapper that implements hash and equality
     # using the wrapped array's bytes representation and sha256 hash function
     # this is useful to select some array to hold without updating in the process
@@ -115,7 +115,7 @@ class _FrozenArray(_MaskBase):
         return int(hashlib.sha256(bytes).hexdigest(), 16)
 
     def __eq__(self, other) -> bool:
-        if not isinstance(other, _FrozenArray):
+        if not isinstance(other, _MaskedArray):
             return False
         lhs, rhs = self.__wrapped__, other.__wrapped__
         # fast path to avoid calling `all` on large arrays
@@ -135,17 +135,17 @@ def mask(value: T) -> _MaskBase[T]:
     return mask.type_dispatcher(value)
 
 
-mask.type_dispatcher = ft.singledispatch(_FrozenHashable)
+mask.type_dispatcher = ft.singledispatch(_MaskedHashable)
 mask.def_type = mask.type_dispatcher.register
 
 
 for ndarray in arraylib.ndarrays:
 
     @mask.def_type(ndarray)
-    def mask_array(value: T) -> _FrozenArray[T]:
+    def mask_array(value: T) -> _MaskedArray[T]:
         # wrap arrays with a custom wrapper that implements hash and equality
         # arrays can be hashed by converting them to bytes and hashing the bytes
-        return _FrozenArray(value)
+        return _MaskedArray(value)
 
 
 @mask.def_type(_MaskBase)

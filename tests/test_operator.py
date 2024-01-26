@@ -27,7 +27,7 @@ import os
 
 from sepes._src.tree_mask import tree_mask
 
-freeze = lambda x: tree_mask(x, cond=lambda _:True)
+freeze = lambda x: tree_mask(x, cond=lambda _: True)
 
 test_arraylib = os.environ.get("SEPES_TEST_ARRAYLIB", "numpy")
 if test_arraylib == "jax":

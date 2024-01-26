@@ -15,7 +15,6 @@
 from __future__ import annotations
 
 import dataclasses as dc
-import re
 from collections import namedtuple
 from typing import Any
 
@@ -255,8 +254,8 @@ def test_tracer_repr():
 @pytest.mark.skipif(backend != "jax", reason="testing jax specific sharding info")
 def test_jax_sharding_tree_summary():
     import jax
-    from jax.sharding import NamedSharding, PartitionSpec, Mesh
     import numpy as np
+    from jax.sharding import Mesh, NamedSharding, PartitionSpec
 
     x = jax.numpy.ones([4 * 4, 2 * 2])
     mesh = Mesh(devices=np.array(jax.devices()).reshape(4, 2), axis_names=["i", "j"])

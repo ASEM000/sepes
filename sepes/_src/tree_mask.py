@@ -38,11 +38,7 @@ class _MaskedError(NamedTuple):
             f"Cannot apply `{self.opname}` operation to a frozen object "
             f"{', '.join(map(str, a))} "
             f"{', '.join(k + '=' + str(v) for k, v in k.items())}.\n"
-            "Unmask the object first by unmasking the frozen mask:\n"
-            "Example:\n"
-            ">>> import jax\n"
-            ">>> import sepes as sp\n"
-            ">>> tree = sp.tree_unmask(tree)"
+            "Unmask the object first using `tree_unmask`"
         )
 
 
@@ -86,7 +82,8 @@ class _MaskBase(Static):
     __and__ = __rand__ = __iand__ = _MaskedError("and")
     __xor__ = __rxor__ = __ixor__ = _MaskedError("")
     __or__ = __ror__ = __ior__ = _MaskedError("or")
-    __neg__ = __pos__ = __abs__ = __invert__ = _MaskedError("unary operation")
+    __neg__ = __pos__ = __abs__ = __invert__ = _MaskedError("unary")
+    __lt__ = __le__ = __gt__ = __ge__ = _MaskedError("comparison")
     __call__ = _MaskedError("__call__")
 
 
@@ -227,7 +224,7 @@ def _(_: float | complex) -> bool:
 
 def _tree_mask_map(
     tree: T,
-    cond: MaskType,
+    cond: Callable[[Any], bool],
     func: type | Callable[[Any], Any],
     *,
     is_leaf: Callable[[Any], None] | None = None,

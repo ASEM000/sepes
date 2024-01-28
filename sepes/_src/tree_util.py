@@ -125,13 +125,19 @@ class partial(ft.partial):
 
 def bcmap(
     func: Callable[P, T],
+    broadcast_to: int | str | None = None,
     *,
     is_leaf: Callable[[Any], bool] | None = None,
 ) -> Callable[P, T]:
     """Map a function over pytree leaves with automatic broadcasting for scalar arguments.
 
     Args:
-        func: the function to be mapped over the pytree
+        func: the function to be mapped over the pytree.
+        broadcast_to: Accepts integer for broadcasting to a specific argument
+            or string for broadcasting to a specific keyword argument.
+            If ``None``, then the function is broadcasted to the first argument
+            or the first keyword argument if no positional arguments are provided.
+            Defaults to ``None``.
         is_leaf: a predicate function that returns True if the node is a leaf.
 
     Example:
@@ -148,7 +154,6 @@ def bcmap(
         >>> print(sp.tree_str(tree_add(tree_of_arrays, 1)))
         dict(a=[2 3 4], b=[5 6 7])
     """
-    # add broadcasting argnum/argname to the function later
     treelib = sepes._src.backend.treelib
 
     @ft.wraps(func)
@@ -158,12 +163,18 @@ def bcmap(
         leaves = []
         kwargs_keys: list[str] = []
 
+        bdcst_to = (
+            (0 if len(args) else next(iter(kwargs)))
+            if broadcast_to is None
+            else broadcast_to
+        )
+
         treedef0 = (
             # reference treedef is the first positional argument
-            treelib.tree_flatten(args[0], is_leaf=is_leaf)[1]
+            treelib.tree_flatten(args[bdcst_to], is_leaf=is_leaf)[1]
             if len(args)
             # reference treedef is the first keyword argument
-            else treelib.tree_flatten(kwargs[next(iter(kwargs))], is_leaf=is_leaf)[1]
+            else treelib.tree_flatten(kwargs[bdcst_to], is_leaf=is_leaf)[1]
         )
 
         for arg in args:

@@ -174,3 +174,17 @@ def test_bcmap(tree, expected):
 def test_math_operations_errors():
     with pytest.raises(TypeError):
         tree1 + "s"
+
+
+def test_bcmap_int_argnum_broadcast_to():
+    def func(x, y):
+        return x + y
+
+    assert bcmap(func, broadcast_to=1)(1, [2, 3, 4]) == [3, 4, 5]
+
+
+def test_bcmap_key_argnum_broadcast_to():
+    def func(x, y):
+        return x + y
+
+    assert bcmap(func, broadcast_to="y")(x=1, y=[2, 3, 4]) == [3, 4, 5]

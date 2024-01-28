@@ -28,7 +28,7 @@
 - Reduce the API and remove:
   -  `tree_graph` (for graphviz)
   -  `tree_mermaid` (mermaidjs)
-  -  `Partial/partial`
+  -  `Partial/partial` -> Use `jax.tree_util.partial` instead.
   -  `is_tree_equal` -> Use `bcmap(numpy.testing.assert_*)(pytree1, pytree2)` instead.
   -  `freeze`  -> Use `ft.partial(tree_mask, lambda _: True)` instead.
   -  `unfreeze` -> Use `tree_unmask` instead.

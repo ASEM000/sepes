@@ -224,7 +224,7 @@ def _(_: float | complex) -> bool:
 
 def _tree_mask_map(
     tree: T,
-    cond: MaskType,
+    cond: Callable[[Any], bool],
     func: type | Callable[[Any], Any],
     *,
     is_leaf: Callable[[Any], None] | None = None,

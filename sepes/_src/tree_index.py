@@ -216,7 +216,7 @@ def generate_path_mask(tree, where: tuple[BaseMatchKey, ...], *, is_leaf=None):
 def resolve_where(
     where: list[Any],
     tree: T,
-    is_leaf: Callable[[Any], None] | None = None,
+    is_leaf: Callable[[Any], bool] | None = None,
 ):
     treelib = sepes._src.backend.treelib
 
@@ -352,7 +352,7 @@ class at(Generic[T]):
     def get(
         self,
         *,
-        is_leaf: Callable[[Any], None] | None = None,
+        is_leaf: Callable[[Any], bool] | None = None,
         is_parallel: bool | ParallelConfig = False,
     ):
         """Get the leaf values at the specified location.
@@ -402,7 +402,7 @@ class at(Generic[T]):
         self,
         set_value: Any,
         *,
-        is_leaf: Callable[[Any], None] | None = None,
+        is_leaf: Callable[[Any], bool] | None = None,
         is_parallel: bool | ParallelConfig = False,
     ):
         """Set the leaf values at the specified location.
@@ -470,7 +470,7 @@ class at(Generic[T]):
         self,
         func: Callable[[Any], Any],
         *,
-        is_leaf: Callable[[Any], None] | None = None,
+        is_leaf: Callable[[Any], bool] | None = None,
         is_parallel: bool | ParallelConfig = False,
     ):
         """Apply a function to the leaf values at the specified location.
@@ -530,7 +530,7 @@ class at(Generic[T]):
         func: Callable[[Any, S], tuple[Any, S]],
         state: S,
         *,
-        is_leaf: Callable[[Any], None] | None = None,
+        is_leaf: Callable[[Any], bool] | None = None,
     ) -> tuple[Any, S]:
         """Apply a function while carrying a state.
 
@@ -591,7 +591,7 @@ class at(Generic[T]):
         func: Callable[[Any, Any], Any],
         *,
         initializer: Any = _no_initializer,
-        is_leaf: Callable[[Any], None] | None = None,
+        is_leaf: Callable[[Any], bool] | None = None,
     ) -> Any:
         """Reduce the leaf values at the specified location.
 
@@ -628,7 +628,7 @@ class at(Generic[T]):
         self,
         count: int | None = None,
         *,
-        is_leaf: Callable[[Any], None] | None = None,
+        is_leaf: Callable[[Any], bool] | None = None,
         is_parallel: bool | ParallelConfig = False,
     ) -> list[Any]:
         """Extract subtrees at the specified location.
@@ -712,7 +712,6 @@ class at(Generic[T]):
 
         treelib.flatten(tree, is_leaf=aggregate_subtrees)
         return subtrees
-
 
 # dispatch on type of indexer to convert input item to at indexer
 # `__getitem__` to the appropriate key

@@ -243,9 +243,9 @@ def test_tracer_repr():
     @jax.jit
     def f(x):
         out = tree_repr(x)
-        assert out == "Tracer(f32[10,10])"
+        assert out == "DynamicJaxprTracer(f32[10,10])"
         out = tree_str(x)
-        assert out == "Tracer(f32[10,10])"
+        assert out == "DynamicJaxprTracer(f32[10,10])"
         return x
 
     f(jax.numpy.ones((10, 10)))

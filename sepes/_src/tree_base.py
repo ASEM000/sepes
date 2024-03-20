@@ -155,11 +155,11 @@ class TreeClass(metaclass=TreeClassMeta):
         the tree. for example:
 
         >>> @sp.leafwise
-        ... @sp.autoinit
         ... class Tree(sp.TreeClass):
-        ...     a:int = 1
-        ...     b:float = 2.0
-        >>> tree = Tree()
+        ...     def __init__(self, a:int, b:float):
+        ...         self.a = a
+        ...         self.b = b
+        >>> tree = Tree(a=1, b=2.0)
         >>> tree + 1  # will add 1 to each leaf
         Tree(a=2, b=3.0)
 
@@ -168,11 +168,11 @@ class TreeClass(metaclass=TreeClassMeta):
         used to ``get``, ``set``, or ``apply`` a function to a leaf or a group of
         leaves using ``leaf`` name, index or by a boolean mask.
 
-        >>> @sp.autoinit
-        ... class Tree(sp.TreeClass):
-        ...     a:int = 1
-        ...     b:float = 2.0
-        >>> tree = Tree()
+        >>> class Tree(sp.TreeClass):
+        ...     def __init__(self, a:int, b:float):
+        ...         self.a = a
+        ...         self.b = b
+        >>> tree = Tree(a=1, b=2.0)
         >>> tree.at["a"].get()
         Tree(a=1, b=None)
         >>> tree.at[0].get()
@@ -274,14 +274,14 @@ class TreeClass(metaclass=TreeClassMeta):
 
         Example:
             >>> import sepes as sp
-            >>> @sp.autoinit
-            ... class Tree(sp.TreeClass):
-            ...    a: int = 1
-            ...    b: float = 2.0
+            >>> class Tree(sp.TreeClass):
+            ...    def __init__(self, a:int, b:float):
+            ...        self.a = a
+            ...        self.b = b
             ...    def add(self, x: int) -> int:
             ...        self.a += x
             ...        return self.a
-            >>> tree = Tree()
+            >>> tree = Tree(a=1, b=2.0)
             >>> tree.at["a"].get()
             Tree(a=1, b=None)
             >>> tree.at["a"].set(100)

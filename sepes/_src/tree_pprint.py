@@ -182,7 +182,7 @@ def _(node: ft.partial, **spec: Unpack[PPSpec]) -> str:
     func = tree_str.pp(node.func, **spec)
     args = tree_str.pps(tree_str.pp, node.args, **spec)
     keywords = tree_str.pps(tree_str.kv_pp, node.keywords, **spec)
-    return f"Partial(" + ",".join([func, args, keywords]) + ")"
+    return "partial(" + ",".join([func, args, keywords]) + ")"
 
 
 @tree_str.def_type(list)
@@ -449,26 +449,6 @@ def tree_summary(
         └─────────┴──────┴─────┴──────┘
 
     Example:
-        Set custom type display for ``jax`` jaxprs
-
-        >>> import jax
-        >>> import sepes as sp
-        >>> ClosedJaxprType = type(jax.make_jaxpr(lambda x: x)(1))
-        >>> @sp.tree_summary.def_type(ClosedJaxprType)
-        ... def _(expr: ClosedJaxprType) -> str:
-        ...     jaxpr = expr.jaxpr
-        ...     return f"Jaxpr({jaxpr.invars}, {jaxpr.outvars})"
-        >>> def func(x, y):
-        ...     return x
-        >>> jaxpr = jax.make_jaxpr(func)(1, 2)
-        >>> print(sp.tree_summary(jaxpr))
-        ┌────┬──────────────────┬─────┬────┐
-        │Name│Type              │Count│Size│
-        ├────┼──────────────────┼─────┼────┤
-        │Σ   │Jaxpr([a, b], [a])│1    │    │
-        └────┴──────────────────┴─────┴────┘
-
-    Example:
         Display flops of a function in tree summary
 
         >>> import jax
@@ -628,7 +608,7 @@ if is_package_avaiable("jax"):
         shape = node.aval.shape
         dtype = node.aval.dtype
         string = tree_repr.dispatch(ShapeDTypePP(shape, dtype), **spec)
-        return f"Tracer({string})"
+        return f"{type(node).__name__}({string})"
 
     # handle the sharding info if it is sharded
     @tree_summary.def_type(jax.Array)

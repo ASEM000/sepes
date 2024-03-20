@@ -226,7 +226,8 @@ def leafwise(klass: type[T]) -> type[T]:
         The decorated class.
 
     Example:
-        >>> # use ``numpy`` functions on :class:`TreeClass`` classes decorated with ``leafwise``
+        Use ``numpy`` functions on :class:`TreeClass`` classes decorated with :func:`leafwise`
+
         >>> import sepes as sp
         >>> import jax.numpy as jnp
         >>> @sp.leafwise

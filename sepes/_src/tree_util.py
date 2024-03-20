@@ -42,7 +42,7 @@ KeyTypePath = Tuple[KeyPath, TypePath]
 
 def tree_hash(*trees: PyTree) -> int:
     treelib = sepes._src.backend.treelib
-    leaves, treedef = treelib.tree_flatten(trees)
+    leaves, treedef = treelib.flatten(trees)
     return hash((*leaves, treedef))
 
 
@@ -57,7 +57,7 @@ def tree_copy(tree: T) -> T:
     def is_leaf(node) -> bool:
         return isinstance(node, types)
 
-    return treelib.tree_map(tree_copy.copy_dispatcher, tree, is_leaf=is_leaf)
+    return treelib.map(tree_copy.copy_dispatcher, tree, is_leaf=is_leaf)
 
 
 # default behavior is to copy the tree elements except for registered types
@@ -94,11 +94,11 @@ def is_tree_equal(*trees: Any) -> bool:
     """
     treelib = sepes._src.backend.treelib
     tree0, *rest = trees
-    leaves0, treedef0 = treelib.tree_flatten(tree0)
+    leaves0, treedef0 = treelib.flatten(tree0)
     verdict = True
 
     for tree in rest:
-        leaves, treedef = treelib.tree_flatten(tree)
+        leaves, treedef = treelib.flatten(tree)
         if (treedef != treedef0) or verdict is False:
             return False
         verdict = ft.reduce(op.and_, map(_is_leaf_rhs_equal, leaves0, leaves), verdict)
@@ -171,21 +171,21 @@ def bcmap(
 
         treedef0 = (
             # reference treedef is the first positional argument
-            treelib.tree_flatten(args[bdcst_to], is_leaf=is_leaf)[1]
+            treelib.flatten(args[bdcst_to], is_leaf=is_leaf)[1]
             if len(args)
             # reference treedef is the first keyword argument
-            else treelib.tree_flatten(kwargs[bdcst_to], is_leaf=is_leaf)[1]
+            else treelib.flatten(kwargs[bdcst_to], is_leaf=is_leaf)[1]
         )
 
         for arg in args:
-            if treedef0 == treelib.tree_flatten(arg, is_leaf=is_leaf)[1]:
+            if treedef0 == treelib.flatten(arg, is_leaf=is_leaf)[1]:
                 cargs += [...]
                 leaves += [treedef0.flatten_up_to(arg)]
             else:
                 cargs += [arg]
 
         for key in kwargs:
-            if treedef0 == treelib.tree_flatten(kwargs[key], is_leaf=is_leaf)[1]:
+            if treedef0 == treelib.flatten(kwargs[key], is_leaf=is_leaf)[1]:
                 ckwargs[key] = ...
                 leaves += [treedef0.flatten_up_to(kwargs[key])]
                 kwargs_keys += [key]
@@ -199,7 +199,7 @@ def bcmap(
             args = args_kwargs_values[:split_index]
             kwargs = dict(zip(kwargs_keys, args_kwargs_values[split_index:]))
             all_leaves += [bfunc(*args, **kwargs)]
-        return treelib.tree_unflatten(treedef0, all_leaves)
+        return treelib.unflatten(treedef0, all_leaves)
 
     return wrapper
 
@@ -281,15 +281,15 @@ def leafwise(klass: type[T]) -> type[T]:
 
     def uop(func):
         def wrapper(self):
-            return treelib.tree_map(func, self)
+            return treelib.map(func, self)
 
         return ft.wraps(func)(wrapper)
 
     def bop(func):
         def wrapper(leaf, rhs=None):
             if isinstance(rhs, type(leaf)):
-                return treelib.tree_map(func, leaf, rhs)
-            return treelib.tree_map(lambda x: func(x, rhs), leaf)
+                return treelib.map(func, leaf, rhs)
+            return treelib.map(lambda x: func(x, rhs), leaf)
 
         return ft.wraps(func)(wrapper)
 
@@ -351,7 +351,7 @@ def tree_type_path_leaves(
     is_path_leaf: Callable[[KeyTypePath], bool] | None = None,
 ) -> Sequence[tuple[KeyTypePath, Any]]:
     treelib = sepes._src.backend.treelib
-    _, atomicdef = treelib.tree_flatten(1)
+    _, atomicdef = treelib.flatten(1)
 
     # mainly used for visualization
     def flatten_one_level(type_path: KeyTypePath, tree: PyTree):
@@ -367,7 +367,7 @@ def tree_type_path_leaves(
                 return False
             return True
 
-        path_leaf, treedef = treelib.tree_path_flatten(tree, is_leaf=one_level_is_leaf)
+        path_leaf, treedef = treelib.path_flatten(tree, is_leaf=one_level_is_leaf)
 
         if treedef == atomicdef:
             yield type_path, tree
@@ -578,11 +578,11 @@ def value_and_tree(func, argnums: int | Sequence[int] = 0):
         # copy the incoming inputs
         (args, kwargs) = tree_copy((args, kwargs))
         # and edit the node/record to make it mutable (if there is a rule for it)
-        treelib.tree_map(lambda _: _, (args, kwargs), is_leaf=mutate_is_leaf)
+        treelib.map(lambda _: _, (args, kwargs), is_leaf=mutate_is_leaf)
         output = func(*args, **kwargs)
         # traverse each node in the tree depth-first manner
         # to undo the mutation (if there is a rule for it)
-        treelib.tree_map(lambda _: _, (args, kwargs), is_leaf=immutate_is_leaf)
+        treelib.map(lambda _: _, (args, kwargs), is_leaf=immutate_is_leaf)
         out_args = tuple(a for i, a in enumerate(args) if i in argnums)
         out_args = out_args[0] if is_int_argnum else out_args
         return output, out_args

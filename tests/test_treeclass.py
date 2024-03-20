@@ -149,7 +149,7 @@ def test_field_nondiff():
 
     test = Test()
 
-    assert treelib.tree_flatten(test)[0] == []
+    assert treelib.flatten(test)[0] == []
 
     class Test(TreeClass):
         def __init__(self, a=arraylib.array([1, 2, 3]), b=arraylib.array([4, 5, 6])):
@@ -157,7 +157,7 @@ def test_field_nondiff():
             self.b = b
 
     test = Test()
-    npt.assert_allclose(treelib.tree_flatten(test)[0][0], arraylib.array([4, 5, 6]))
+    npt.assert_allclose(treelib.flatten(test)[0][0], arraylib.array([4, 5, 6]))
 
 
 def test_post_init():
@@ -202,7 +202,7 @@ def test_subclassing():
 
     l1 = L1()
 
-    assert treelib.tree_flatten(l1)[0] == [2, 4, 5, 5]
+    assert treelib.flatten(l1)[0] == [2, 4, 5, 5]
     assert l1.inc(10) == 20
     assert l1.sub(10) == 0
     assert l1.d == 5
@@ -214,7 +214,7 @@ def test_subclassing():
 
     l1 = L1()
 
-    assert treelib.tree_flatten(l1)[0] == [2, 4, 5]
+    assert treelib.flatten(l1)[0] == [2, 4, 5]
 
 
 def test_registering_state():
@@ -416,7 +416,7 @@ def test_treeclass_frozen_field():
     t = Test(1)
 
     assert t.a == freeze(1)
-    assert treelib.tree_flatten(t)[0] == []
+    assert treelib.flatten(t)[0] == []
 
 
 def test_super():

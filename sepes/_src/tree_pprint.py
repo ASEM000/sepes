@@ -526,14 +526,14 @@ def tree_summary(
         def reduce_func(acc, node):
             return acc + tree_summary.size_dispatcher(node)
 
-        leaves, _ = treelib.tree_flatten(tree)
+        leaves, _ = treelib.flatten(tree)
         return ft.reduce(reduce_func, leaves, 0)
 
     def tree_count(tree: PyTree) -> int:
         def reduce_func(acc, node):
             return acc + tree_summary.count_dispatcher(node)
 
-        leaves, _ = treelib.tree_flatten(tree)
+        leaves, _ = treelib.flatten(tree)
         return ft.reduce(reduce_func, leaves, 0)
 
     traces_leaves = tree_type_path_leaves(

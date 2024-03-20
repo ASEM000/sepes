@@ -147,7 +147,7 @@ def generate_path_mask(tree, where: tuple[BaseMatchKey, ...], *, is_leaf=None):
                 return False
             return True
 
-        return treelib.tree_path_map(func, tree, is_leaf=is_leaf_func)
+        return treelib.path_map(func, tree, is_leaf=is_leaf_func)
 
     if any(isinstance(mask, EllipsisMatchKey) for mask in where):
         # should the selected subtree be broadcasted to the full tree
@@ -160,8 +160,8 @@ def generate_path_mask(tree, where: tuple[BaseMatchKey, ...], *, is_leaf=None):
         # and without broadcast the result will be [100, 3, 4]
 
         def bool_tree(value: bool, tree: Any):
-            leaves, treedef = treelib.tree_flatten(tree, is_leaf=is_leaf)
-            return treelib.tree_unflatten(treedef, [value] * len(leaves))
+            leaves, treedef = treelib.flatten(tree, is_leaf=is_leaf)
+            return treelib.unflatten(treedef, [value] * len(leaves))
 
         true_tree = ft.partial(bool_tree, True)
         false_tree = ft.partial(bool_tree, False)
@@ -249,7 +249,7 @@ def resolve_where(
         nonlocal seen_tuple, level_paths, bool_masks
         # used to check if a pytree is a valid indexing pytree
         # used with `is_leaf` argument of any `tree_*` function
-        leaves, _ = treelib.tree_flatten(node)
+        leaves, _ = treelib.flatten(node)
 
         if all(map(is_bool_leaf, leaves)):
             # if all leaves are boolean then this is maybe a boolean mask.
@@ -289,7 +289,7 @@ def resolve_where(
         # each for loop iteration is a level in the where path
         # this means that if where = ("a", "b", "c") then this means
         # we are travering the tree at level "a" then level "b" then level "c"
-        treelib.tree_flatten(level_keys, is_leaf=verify_and_aggregate_is_leaf)
+        treelib.flatten(level_keys, is_leaf=verify_and_aggregate_is_leaf)
         # if len(level_paths) > 1 then this means that we have multiple keys
         # at the same level, for example where = ("a", ("b", "c")) then this
         # means that for a parent "a", select "b" and "c".
@@ -304,7 +304,7 @@ def resolve_where(
 
     if bool_masks:
         all_masks = [mask, *bool_masks] if mask else bool_masks
-        mask = treelib.tree_map(combine_bool_leaves, *all_masks)
+        mask = treelib.map(combine_bool_leaves, *all_masks)
 
     return mask
 
@@ -390,7 +390,7 @@ class at(Generic[T]):
             # and `None` otherwise
             return leaf if where else None
 
-        return treelib.tree_map(
+        return treelib.map(
             leaf_get,
             resolve_where(self.where, self.tree, is_leaf),
             self.tree,
@@ -440,8 +440,8 @@ class at(Generic[T]):
                 return arraylib.where(where, set_value, leaf)
             return set_value if where else leaf
 
-        _, lhsdef = treelib.tree_flatten(self.tree, is_leaf=is_leaf)
-        _, rhsdef = treelib.tree_flatten(set_value, is_leaf=is_leaf)
+        _, lhsdef = treelib.flatten(self.tree, is_leaf=is_leaf)
+        _, rhsdef = treelib.flatten(set_value, is_leaf=is_leaf)
 
         if lhsdef == rhsdef:
             # do not broadcast set_value if it is a pytree of same structure
@@ -449,7 +449,7 @@ class at(Generic[T]):
             # to tree2 leaves if tree2 is a pytree of same structure as tree
             # instead of making each leaf of tree a copy of tree2
             # is design is similar to ``numpy`` design `np.at[...].set(Array)`
-            return treelib.tree_map(
+            return treelib.map(
                 leaf_set,
                 resolve_where(self.where, self.tree, is_leaf),
                 self.tree,
@@ -458,7 +458,7 @@ class at(Generic[T]):
                 is_parallel=is_parallel,
             )
 
-        return treelib.tree_map(
+        return treelib.map(
             ft.partial(leaf_set, set_value=set_value),
             resolve_where(self.where, self.tree, is_leaf),
             self.tree,
@@ -517,7 +517,7 @@ class at(Generic[T]):
                 return arraylib.where(where, func(leaf), leaf)
             return func(leaf) if where else leaf
 
-        return treelib.tree_map(
+        return treelib.map(
             leaf_apply,
             resolve_where(self.where, self.tree, is_leaf),
             self.tree,
@@ -578,7 +578,7 @@ class at(Generic[T]):
                 return arraylib.where(where, stateless_func(leaf), leaf)
             return stateless_func(leaf) if where else leaf
 
-        out_tree = treelib.tree_map(
+        out_tree = treelib.map(
             leaf_apply,
             resolve_where(self.where, self.tree, is_leaf),
             self.tree,
@@ -619,7 +619,7 @@ class at(Generic[T]):
         """
         treelib = sepes._src.backend.treelib
         tree = self.get(is_leaf=is_leaf)  # type: ignore
-        leaves, _ = treelib.tree_flatten(tree, is_leaf=is_leaf)
+        leaves, _ = treelib.flatten(tree, is_leaf=is_leaf)
         if initializer is _no_initializer:
             return ft.reduce(func, leaves)
         return ft.reduce(func, leaves, initializer)
@@ -700,7 +700,7 @@ class at(Generic[T]):
                 # for example if tree = dict(a=1) and mask is dict(a=True)
                 # then returns [1] and not [dict(a=1)]
                 return False
-            leaves, _ = treelib.tree_flatten(node, is_leaf=lambda x: x is None)
+            leaves, _ = treelib.flatten(node, is_leaf=lambda x: x is None)
             # in essence if the subtree does not contain any None leaves
             # then it is a valid subtree to be plucked
             # this because `get` sets the non-selected leaves to None
@@ -710,7 +710,7 @@ class at(Generic[T]):
             count -= 1
             return True
 
-        treelib.tree_flatten(tree, is_leaf=aggregate_subtrees)
+        treelib.flatten(tree, is_leaf=aggregate_subtrees)
         return subtrees
 
 

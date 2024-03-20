@@ -270,8 +270,6 @@ class TreeClass(metaclass=TreeClassMeta):
             - ``int`` for positional indexing for sequences.
             - ``...`` to select all leaves.
             - a boolean mask of the same structure as the tree
-            - ``re.Pattern`` to index all keys matching a regex pattern.
-            - an instance of ``BaseKey`` with custom logic to index a pytree.
             - a tuple of the above types to index multiple keys at same level.
 
         Example:

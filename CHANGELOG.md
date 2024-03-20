@@ -2,19 +2,6 @@
 
 ## V0.11.4
 
-- Add an option to select which argument to broadcast to in `bcmap`
-
-    ```python
-    import sepes as sp 
-    def func(x, y):
-        return x + y
-    # broadcast x to y structure
-    # this effectively converts 1 -> [1,1,1]
-    sp.bcmap(func, broadcast_to="y")(x=1, y=[2,3,4]) # [3,4,5]
-    # broadcast x to y structure (argnum=1)
-    sp.bcmap(func, broadcast_to=1)(1, [2,3,4]) # [3,4,5]
-    ```
-
 - Add sharding info in `tree_summary`, `G` for global, `S` for sharded shape.
   
     ```python
@@ -38,23 +25,18 @@
     └────┴───────────┴─────┴───────┘
     ```
 
-- Reduce the API footprint by removing:
-  -  `tree_graph` (for graphviz visualization)
-  -  `tree_mermaid` (mermaidjs visualization)
-  -  `Partial/partial` -> Use `jax.tree_util.Partial` instead.
+- Reduce the API and remove:
+  -  `tree_graph` (for graphviz)
+  -  `tree_mermaid` (mermaidjs)
+  -  `Partial/partial` -> Use `jax.tree_util.partial` instead.
   -  `is_tree_equal` -> Use `bcmap(numpy.testing.assert_*)(pytree1, pytree2)` instead.
   -  `freeze`  -> Use `ft.partial(tree_mask, lambda _: True)` instead.
   -  `unfreeze` -> Use `tree_unmask` instead.
 
--  Implement `__format__` for `TreeClass` for shorter syntax representation:
-   -  `f"{tree:3r}"` is tree **r**epr of depth = 3
-   -  `f"{tree:3s}"` is tree **s**tr of depth = 3
-   - `f"{tree:3d}"` is tree **d**iagram of depth = 3
-   -  `f"{tree:3t}`" is tree summary of depth = 3
-
 - `tree_{mask,unmask}` now accepts only callable `cond` argument.
 - Rename `is_frozen` to `is_masked`
-  - frozen could mean non-trainable array, however the masking is not only for arrays but also for other types that will be hidden from jax transformations.
+  - frozen could mean non-trainable array, however the masking is not only for arrays but also for other types that will be hidden across jax transformations.
+- Remove `re.compile(pattern)` to match `re.Pattern` in `where` argument in `AtIndexer`, instead use string `pattern` directly.
 
 ## V0.11.3
 

@@ -7,7 +7,7 @@
 .. autoclass:: TreeClass 
     :members:
         at
-.. autoclass:: AtIndexer
+.. autoclass:: at
     :members:
         get,
         set,
@@ -16,10 +16,7 @@
         reduce,
         pluck,
 
-.. autoclass:: at
-.. autoclass:: BaseKey
-    :members:
-        __eq__
+.. autoclass:: AtIndexer
 .. autofunction:: autoinit
 .. autofunction:: leafwise
 .. autofunction:: field

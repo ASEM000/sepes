@@ -1,4 +1,4 @@
-# Copyright 2023 sepes authors
+# Copyright 2024 sepes authors
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -35,6 +35,8 @@ if is_package_avaiable("jax"):
     import sepes._src.backend.arraylib.jax
 if is_package_avaiable("numpy"):
     import sepes._src.backend.arraylib.numpy
+if is_package_avaiable("mlx"):
+    import sepes._src.backend.arraylib.mlx
 
 
 def optree_backend():

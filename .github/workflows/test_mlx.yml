@@ -1,0 +1,40 @@
+name: numpy backend
+
+on:
+  - push
+  - pull_request
+
+jobs:
+  test:
+    runs-on: ${{ matrix.os }}
+    env:
+      PYTREECLASS_BACKEND: numpy
+    strategy:
+      matrix:
+        os: [macos-latest]
+        python-version: ["3.8", "3.9", "3.10", "3.11", "3.12"]
+
+    steps:
+      - uses: actions/checkout@v2
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v2
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install optree numpy
+          python -m pip install mlx
+          python -m pip install typing-extensions
+          python -m pip install pytest pytest-benchmark wheel coverage
+      - name: Pytest Check
+        run: |
+          export SEPES_TEST_ARRAYLIB=mlx
+          export SEPES_BACKEND=optree
+          python -m pip install .
+
+          coverage run -m pytest tests
+
+      - name: Codecov
+        uses: codecov/codecov-action@v3.1.0

@@ -1,4 +1,4 @@
-# Copyright 2023 sepes authors
+# Copyright 2024 sepes authors
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -43,6 +43,10 @@ elif test_arraylib == "torch":
     import torch as arraylib
 
     arraylib.array = arraylib.tensor
+elif test_arraylib == "mlx":
+    import mlx.core as arraylib
+
+    default_int = arraylib.int64
 else:
     raise ImportError("no backend installed")
 
@@ -578,8 +582,7 @@ def test_init_subclass():
         def __init_subclass__(cls, hello):
             cls.hello = hello
 
-    class Test2(TreeClass, Test, hello=1):
-        ...
+    class Test2(TreeClass, Test, hello=1): ...
 
     assert Test2.hello == 1
 
@@ -630,8 +633,7 @@ def test_nohints():
 
 
 def non_field_builder():
-    class T:
-        ...
+    class T: ...
 
     assert dict(build_field_map(T)) == {}
 

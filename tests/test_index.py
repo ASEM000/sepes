@@ -155,6 +155,28 @@ def test_array_indexer_get(tree, expected, where):
     assert is_tree_equal(indexer.get(is_parallel=True), expected)
 
 
+@pytest.mark.skipif(backend != "jax", reason="test jax jit with get")
+def test_get_fill_value():
+    import jax
+    import jax.numpy as jnp
+
+    tree = dict(a=jnp.array([1, 2, 3]), b=jnp.array([4, 5, 6]))
+    mask = dict(
+        a=jnp.array([False, True, False]),
+        b=jnp.array([False, True, False]),
+    )
+
+    @jax.jit
+    def jit_func(tree):
+        return AtIndexer(tree)[mask].get(fill_value=0)
+
+    out = jit_func(tree)
+    a = out["a"]
+    b = out["b"]
+    assert jnp.all(a == jnp.array([0, 2, 0]))
+    assert jnp.all(b == jnp.array([0, 5, 0]))
+
+
 @pytest.mark.parametrize(
     ["tree", "expected", "where", "set_value"],
     [

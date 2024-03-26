@@ -66,6 +66,16 @@ tree_copy.copy_dispatcher = ft.singledispatch(copy.copy)
 tree_copy.def_type = tree_copy.copy_dispatcher.register
 
 
+@tree_copy.def_type(int)
+@tree_copy.def_type(float)
+@tree_copy.def_type(complex)
+@tree_copy.def_type(str)
+@tree_copy.def_type(bytes)
+def _(x: T) -> T:
+    # skip applying `copy.copy` on immutable atom types
+    return x
+
+
 def is_array_like(node) -> bool:
     return hasattr(node, "shape") and hasattr(node, "dtype")
 

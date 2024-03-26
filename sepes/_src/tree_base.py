@@ -23,13 +23,7 @@ from typing_extensions import Unpack
 
 import sepes
 from sepes._src.code_build import fields
-from sepes._src.tree_pprint import (
-    PPSpec,
-    tree_repr,
-    tree_str,
-    tree_diagram,
-    tree_summary,
-)
+from sepes._src.tree_pprint import PPSpec, tree_repr, tree_str
 from sepes._src.tree_util import is_tree_equal, tree_copy, tree_hash, value_and_tree
 from typing_extensions import Self
 from sepes._src.tree_index import AtIndexer

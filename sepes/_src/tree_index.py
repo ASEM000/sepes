@@ -27,10 +27,11 @@
 # apply the *what* part to the *where* part.
 
 from __future__ import annotations
+
 import abc
 import functools as ft
 import re
-from typing import Any, Callable, Hashable, TypeVar, Generic
+from typing import Any, Callable, Generic, Hashable, TypeVar
 
 from typing_extensions import Self
 
@@ -45,6 +46,7 @@ PyTree = Any
 EllipsisType = TypeVar("EllipsisType")
 PathKeyEntry = TypeVar("PathKeyEntry", bound=Hashable)
 _no_initializer = object()
+_no_fill_value = object()
 
 
 class BaseKey(abc.ABC):
@@ -303,6 +305,7 @@ class at(Generic[T]):
         *,
         is_leaf: Callable[[Any], bool] | None = None,
         is_parallel: bool | ParallelConfig = False,
+        fill_value: Any = _no_fill_value,
     ):
         """Get the leaf values at the specified location.
 
@@ -315,6 +318,10 @@ class at(Generic[T]):
 
                     - ``max_workers``: maximum number of workers to use.
                     - ``kind``: kind of pool to use, either ``thread`` or ``process``.
+
+            fill_value: the value to fill the non-selected leaves with.
+                Useful to use with ``jax.jit`` to avoid variable size arrays
+                leaves related errors.
 
         Returns:
             A _new_ pytree of leaf values at the specified location, with the
@@ -333,11 +340,18 @@ class at(Generic[T]):
             # for array boolean mask we select **parts** of the array that
             # matches the mask, for example if the mask is Array([True, False, False])
             # and the leaf is Array([1, 2, 3]) then the result is Array([1])
+            # because of the variable resultant size of the output
             if isinstance(where, arraylib.ndarrays) and len(arraylib.shape(where)):
+                if fill_value is not _no_fill_value:
+                    return arraylib.where(where, leaf, fill_value)
                 return leaf[where]
             # non-array boolean mask we select the leaf if the mask is True
             # and `None` otherwise
-            return leaf if where else None
+            return (
+                leaf
+                if where
+                else (None if fill_value is _no_fill_value else fill_value)
+            )
 
         return treelib.map(
             leaf_get,
@@ -718,7 +732,7 @@ class EllipsisKey(BaseKey):
 
 @at.def_alias(re.Pattern)
 class RegexKey(BaseKey):
-    """Match a leaf with a regex pattern inside 'at' property."""
+    """Match a path with a regex pattern inside 'at' property."""
 
     def __init__(self, pattern: str) -> None:
         self.pattern = pattern

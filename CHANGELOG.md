@@ -37,6 +37,9 @@
 - Rename `is_frozen` to `is_masked`
   - frozen could mean non-trainable array, however the masking is not only for arrays but also for other types that will be hidden across jax transformations.
   
+- Add `fill_value` for `at[...].get(fill_value=...)` to add default value for non
+  selected leaves. Useful for arrays under `jax.jit` to avoid variable size related errors.
+  
 ## V0.11.3
 
 - Raise error if `autoinit` is used with `__init__` method defined.

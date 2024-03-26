@@ -35,7 +35,7 @@ class _MaskedError(NamedTuple):
 
     def __call__(self, *a, **k):
         raise NotImplementedError(
-            f"Cannot apply `{self.opname}` operation to a frozen object "
+            f"Cannot apply `{self.opname}` operation on a masked object "
             f"{', '.join(map(str, a))} "
             f"{', '.join(k + '=' + str(v) for k, v in k.items())}.\n"
             "Unmask the object first using `tree_unmask`"

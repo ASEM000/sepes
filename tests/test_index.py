@@ -14,6 +14,7 @@
 
 
 import os
+import re
 from collections import namedtuple
 from typing import NamedTuple
 
@@ -22,7 +23,7 @@ import pytest
 from sepes._src.backend import arraylib, backend, treelib
 from sepes._src.code_build import autoinit
 from sepes._src.tree_base import TreeClass, _mutable_instance_registry
-from sepes._src.tree_index import AtIndexer, BaseMatchKey
+from sepes._src.tree_index import AtIndexer, BaseKey
 from sepes._src.tree_util import is_tree_equal, leafwise, value_and_tree
 
 test_arraylib = os.environ.get("SEPES_TEST_ARRAYLIB", "numpy")
@@ -101,9 +102,9 @@ _X = 1_000
         [tree7, dict(a=None, b=[2, None], c=None), ("b", 0)],
         [tree8, dict(a=None, b=ClassSubTree(c=2, d=None), e=None), ("b", 0)],
         # by regex
-        [tree1, dict(a=None, b=dict(c=2, d=None), e=None), ("b", ("c"))],
-        [tree2, ClassTree(None, dict(c=2, d=None), None), ("b", ("c"))],
-        [tree3, ClassTree(None, ClassSubTree(2, None), None), ("b", ("c"))],
+        [tree1, dict(a=None, b=dict(c=2, d=None), e=None), ("b", re.compile("c"))],
+        [tree2, ClassTree(None, dict(c=2, d=None), None), ("b", re.compile("c"))],
+        [tree3, ClassTree(None, ClassSubTree(2, None), None), ("b", re.compile("c"))],
         # by ellipsis
         [tree1, tree1, (...,)],
         [tree2, tree2, (...,)],
@@ -170,9 +171,9 @@ def test_array_indexer_get(tree, expected, where):
         [tree7, dict(a=1, b=[2, _X], c=4), ("b", 1), _X],
         [tree8, dict(a=1, b=ClassSubTree(c=2, d=_X), e=4), ("b", 1), _X],
         # by regex
-        [tree1, dict(a=1, b=dict(c=_X, d=3), e=4), ("b", ("c")), _X],
-        [tree2, ClassTree(1, dict(c=_X, d=3), 4), ("b", ("c")), _X],
-        [tree3, ClassTree(1, ClassSubTree(_X, 3), 4), ("b", ("c")), _X],
+        [tree1, dict(a=1, b=dict(c=_X, d=3), e=4), ("b", re.compile("c")), _X],
+        [tree2, ClassTree(1, dict(c=_X, d=3), 4), ("b", re.compile("c")), _X],
+        [tree3, ClassTree(1, ClassSubTree(_X, 3), 4), ("b", re.compile("c")), _X],
         # by ellipsis
         [
             tree1,
@@ -212,9 +213,9 @@ def test_indexer_set(tree, expected, where, set_value):
         [tree7, dict(a=1, b=[2, _X], c=4), ("b", 1), _X],
         [tree8, dict(a=1, b=ClassSubTree(c=2, d=_X), e=4), ("b", 1), _X],
         # by regex
-        [tree1, dict(a=1, b=dict(c=_X, d=3), e=4), ("b", ("c")), _X],
-        [tree2, ClassTree(1, dict(c=_X, d=3), 4), ("b", ("c")), _X],
-        [tree3, ClassTree(1, ClassSubTree(_X, 3), 4), ("b", ("c")), _X],
+        [tree1, dict(a=1, b=dict(c=_X, d=3), e=4), ("b", re.compile("c")), _X],
+        [tree2, ClassTree(1, dict(c=_X, d=3), 4), ("b", re.compile("c")), _X],
+        [tree3, ClassTree(1, ClassSubTree(_X, 3), 4), ("b", re.compile("c")), _X],
         # by ellipsis
         [
             tree1,
@@ -252,9 +253,9 @@ def test_array_indexer_set(tree, expected, where, set_value):
         [tree7, dict(a=1, b=[2, _X], c=4), ("b", 1)],
         [tree8, dict(a=1, b=ClassSubTree(c=2, d=_X), e=4), ("b", 1)],
         # by regex
-        [tree1, dict(a=1, b=dict(c=_X, d=3), e=4), ("b", ("c"))],
-        [tree2, ClassTree(1, dict(c=_X, d=3), 4), ("b", ("c"))],
-        [tree3, ClassTree(1, ClassSubTree(_X, 3), 4), ("b", ("c"))],
+        [tree1, dict(a=1, b=dict(c=_X, d=3), e=4), ("b", re.compile("c"))],
+        [tree2, ClassTree(1, dict(c=_X, d=3), 4), ("b", re.compile("c"))],
+        [tree3, ClassTree(1, ClassSubTree(_X, 3), 4), ("b", re.compile("c"))],
         # by ellipsis
         [tree1, dict(a=_X, b=dict(c=_X, d=_X), e=_X), (...,)],
         [tree2, ClassTree(_X, dict(c=_X, d=_X), _X), (...,)],
@@ -291,9 +292,9 @@ def test_indexer_apply(tree, expected, where):
         [tree7, dict(a=1, b=[2, _X], c=4), ("b", 1)],
         [tree8, dict(a=1, b=ClassSubTree(c=2, d=_X), e=4), ("b", 1)],
         # by regex
-        [tree1, dict(a=1, b=dict(c=_X, d=3), e=4), ("b", ("c"))],
-        [tree2, ClassTree(1, dict(c=_X, d=3), 4), ("b", ("c"))],
-        [tree3, ClassTree(1, ClassSubTree(_X, 3), 4), ("b", ("c"))],
+        [tree1, dict(a=1, b=dict(c=_X, d=3), e=4), ("b", re.compile("c"))],
+        [tree2, ClassTree(1, dict(c=_X, d=3), 4), ("b", re.compile("c"))],
+        [tree3, ClassTree(1, ClassSubTree(_X, 3), 4), ("b", re.compile("c"))],
         # by ellipsis
         [tree1, dict(a=_X, b=dict(c=_X, d=_X), e=_X), (...,)],
         [tree2, ClassTree(_X, dict(c=_X, d=_X), _X), (...,)],
@@ -327,9 +328,9 @@ def test_array_indexer_apply(tree, expected, where):
         # mixed
         [tree7, 5, ("b", (0, 1))],
         # by regex
-        [tree1, 5, ("b", ("c|d"))],
-        [tree2, 5, ("b", ("c|d"))],
-        [tree3, 5, ("b", ("c|d"))],
+        [tree1, 5, ("b", re.compile("c|d"))],
+        [tree2, 5, ("b", re.compile("c|d"))],
+        [tree3, 5, ("b", re.compile("c|d"))],
         # by ellipsis
         [tree1, 1 + 2 + 3 + 4, (...,)],
         [tree2, 1 + 2 + 3 + 4, (...,)],
@@ -362,9 +363,9 @@ def test_indexer_reduce(tree, expected, where):
         # mixed
         [tree7, 5, ("b", (0, 1))],
         # by regex
-        [tree1, 5, ("b", ("c|d"))],
-        [tree2, 5, ("b", ("c|d"))],
-        [tree3, 5, ("b", ("c|d"))],
+        [tree1, 5, ("b", re.compile("c|d"))],
+        [tree2, 5, ("b", re.compile("c|d"))],
+        [tree3, 5, ("b", re.compile("c|d"))],
         # by ellipsis
         [tree1, 1 + 2 + 3 + 4, (...,)],
         [tree2, 1 + 2 + 3 + 4, (...,)],
@@ -398,9 +399,9 @@ def test_array_indexer_reduce(tree, expected, where):
         [tree7, (dict(a=1, b=[2, 5], c=4), 3), ("b", (0, 1))],
         # [tree8, (dict(a=1, b=ClassSubTree(c=2, d=5), e=4), 3), ("b", (0, 1))],
         # by regex
-        [tree1, (dict(a=1, b=dict(c=2, d=5), e=4), 3), ("b", ("c|d"))],
-        [tree2, (ClassTree(1, dict(c=2, d=5), 4), 3), ("b", ("c|d"))],
-        [tree3, (ClassTree(1, ClassSubTree(2, 5), 4), 3), ("b", ("c|d"))],
+        [tree1, (dict(a=1, b=dict(c=2, d=5), e=4), 3), ("b", re.compile("c|d"))],
+        [tree2, (ClassTree(1, dict(c=2, d=5), 4), 3), ("b", re.compile("c|d"))],
+        [tree3, (ClassTree(1, ClassSubTree(2, 5), 4), 3), ("b", re.compile("c|d"))],
     ],
 )
 def test_indexer_scan(tree, expected, where):
@@ -553,7 +554,7 @@ def test_custom_key_optreee():
 
     tree = Tree(1, 2)
 
-    class MatchNameType(BaseMatchKey):
+    class MatchNameType(BaseKey):
         def __init__(self, name, type):
             self.name = name
             self.type = type
@@ -563,7 +564,7 @@ def test_custom_key_optreee():
                 return other == (self.name, self.type)
             return False
 
-    assert treelib.flatten(tree.at[MatchNameType("a", int)].get())[0] == [1]
+    assert treelib.tree_flatten(tree.at[MatchNameType("a", int)].get())[0] == [1]
 
 
 def test_repr_str():
@@ -574,9 +575,9 @@ def test_repr_str():
 
     t = Tree()
 
-    assert repr(t.at["a"]) == "at(tree=Tree(a=1, b=2), where=['a'])"
-    assert str(t.at["a"]) == "at(tree=Tree(a=1, b=2), where=['a'])"
-    assert repr(t.at[...]) == "at(tree=Tree(a=1, b=2), where=[Ellipsis])"
+    assert repr(t.at["a"]) == "at(Tree(a=1, b=2), where=['a'])"
+    assert str(t.at["a"]) == "at(Tree(a=1, b=2), where=['a'])"
+    assert repr(t.at[...]) == "at(Tree(a=1, b=2), where=[Ellipsis])"
 
 
 def test_compat_mask():

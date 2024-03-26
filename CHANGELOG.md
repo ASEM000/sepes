@@ -36,8 +36,7 @@
 - `tree_{mask,unmask}` now accepts only callable `cond` argument.
 - Rename `is_frozen` to `is_masked`
   - frozen could mean non-trainable array, however the masking is not only for arrays but also for other types that will be hidden across jax transformations.
-- Remove `re.compile(pattern)` to match `re.Pattern` in `where` argument in `AtIndexer`, instead use string `pattern` directly.
-
+  
 ## V0.11.3
 
 - Raise error if `autoinit` is used with `__init__` method defined.

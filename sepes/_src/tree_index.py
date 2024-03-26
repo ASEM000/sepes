@@ -27,11 +27,10 @@
 # apply the *what* part to the *where* part.
 
 from __future__ import annotations
-
 import abc
 import functools as ft
 import re
-from typing import Any, Callable, Hashable, Tuple, TypeVar, Generic
+from typing import Any, Callable, Hashable, TypeVar, Generic
 
 from typing_extensions import Self
 
@@ -44,69 +43,16 @@ T = TypeVar("T")
 S = TypeVar("S")
 PyTree = Any
 EllipsisType = TypeVar("EllipsisType")
-KeyEntry = TypeVar("KeyEntry", bound=Hashable)
-KeyPath = Tuple[KeyEntry, ...]
+PathKeyEntry = TypeVar("PathKeyEntry", bound=Hashable)
 _no_initializer = object()
 
 
-class BaseMatchKey(abc.ABC):
+class BaseKey(abc.ABC):
     """Parent class for all match classes."""
 
     @abc.abstractmethod
-    def __eq__(self, entry: KeyEntry) -> bool:
+    def __eq__(self, entry: PathKeyEntry) -> bool:
         pass
-
-
-class IndexMatchKey(BaseMatchKey):
-    """Match a leaf with a given index."""
-
-    def __init__(self, idx: int) -> None:
-        self.idx = idx
-
-    def __eq__(self, key: KeyEntry) -> bool:
-        if isinstance(key, int):
-            return self.idx == key
-        treelib = sepes._src.backend.treelib
-        if isinstance(key, type(treelib.sequence_key(0))):
-            return self.idx == key.idx
-        return False
-
-
-class EllipsisMatchKey(BaseMatchKey):
-    """Match all leaves."""
-
-    def __init__(self, _):
-        del _
-
-    def __eq__(self, _: KeyEntry) -> bool:
-        return True
-
-
-class MultiMatchKey(BaseMatchKey):
-    """Match a leaf with multiple keys at the same level."""
-
-    def __init__(self, *keys: tuple[BaseMatchKey, ...]):
-        self.keys = tuple(keys)
-
-    def __eq__(self, entry) -> bool:
-        return any(entry == key for key in self.keys)
-
-
-class RegexMatchKey(BaseMatchKey):
-    """Match a leaf with a regex pattern inside 'at' property."""
-
-    def __init__(self, pattern: str) -> None:
-        self.pattern = pattern
-
-    def __eq__(self, key: KeyEntry) -> bool:
-        if isinstance(key, str):
-            return re.fullmatch(self.pattern, key) is not None
-        treelib = sepes._src.backend.treelib
-        if isinstance(key, type(treelib.attribute_key(""))):
-            return re.fullmatch(self.pattern, key.name) is not None
-        if isinstance(key, type(treelib.dict_key(""))):
-            return re.fullmatch(self.pattern, key.key) is not None
-        return False
 
 
 _INVALID_INDEXER = """\
@@ -114,6 +60,7 @@ Indexing with {indexer} is not implemented, supported indexing types are:
   - `str` for mapping keys or class attributes.
   - `int` for positional indexing for sequences.
   - `...` to select all leaves.
+  - ``re.Pattern`` to match a leaf level path with a regex pattern.
   - Boolean mask of a compatible structure as the pytree.
   - `tuple` of the above types to match multiple leaves at the same level.
 """
@@ -124,11 +71,12 @@ No leaf match is found for where={where}. Available keys are {names}.
 Check the following: 
   - If where is `str` then check if the key exists as a key or attribute.
   - If where is `int` then check if the index is in range.
+  - If where is `re.Pattern` then check if the pattern matches any key.
   - If where is a `tuple` of the above types then check if any of the tuple elements match.
 """
 
 
-def generate_path_mask(tree, where: tuple[BaseMatchKey, ...], *, is_leaf=None):
+def generate_path_mask(tree, where: tuple[BaseKey, ...], *, is_leaf=None):
     # given a pytree `tree` and a `where` path, that is composed of keys
     # generate a boolean mask that will be eventually used to with `tree_map`
     # to mark the leaves at the specified location.
@@ -149,7 +97,7 @@ def generate_path_mask(tree, where: tuple[BaseMatchKey, ...], *, is_leaf=None):
 
         return treelib.path_map(func, tree, is_leaf=is_leaf_func)
 
-    if any(isinstance(mask, EllipsisMatchKey) for mask in where):
+    if any(isinstance(mask, EllipsisKey) for mask in where):
         # should the selected subtree be broadcasted to the full tree
         # e.g. tree = [[1, 2], 3, 4] and where = [0], then
         # broadcast with True will be [[True, True], False, False]
@@ -206,7 +154,7 @@ def generate_path_mask(tree, where: tuple[BaseMatchKey, ...], *, is_leaf=None):
     mask = one_level_tree_path_map(path_map_func, tree)
 
     if not match:
-        path_leaf, _ = treelib.tree_path_flatten(tree, is_leaf=is_leaf)
+        path_leaf, _ = treelib.path_flatten(tree, is_leaf=is_leaf)
         names = "".join("\n  - " + treelib.keystr(path) for path, _ in path_leaf)
         raise LookupError(_NO_LEAF_MATCH.format(where=where, names=names))
 
@@ -239,7 +187,7 @@ def resolve_where(
     # with `tree_map` to select the leaves at the specified location.
     mask = None
     bool_masks: list[T] = []
-    path_masks: list[BaseMatchKey] = []
+    path_masks: list[BaseKey] = []
     seen_tuple = False  # handle multiple keys at the same level
     level_paths = []
 
@@ -268,8 +216,8 @@ def resolve_where(
             bool_masks += [node]
             return True
 
-        if isinstance(resolved_key := at.alias_dispatcher(node), BaseMatchKey):
-            # valid resolution of `BaseMatchKey` is a valid indexing leaf
+        if isinstance(resolved_key := at.alias_dispatcher(node), BaseKey):
+            # valid resolution of `BaseKey` is a valid indexing leaf
             # makes it possible to dispatch on multi-leaf pytree
             level_paths += [resolved_key]
             return False
@@ -293,9 +241,7 @@ def resolve_where(
         # if len(level_paths) > 1 then this means that we have multiple keys
         # at the same level, for example where = ("a", ("b", "c")) then this
         # means that for a parent "a", select "b" and "c".
-        path_masks += (
-            [MultiMatchKey(*level_paths)] if len(level_paths) > 1 else level_paths
-        )
+        path_masks += [MultiKey(*level_paths)] if len(level_paths) > 1 else level_paths
         level_paths = []
         seen_tuple = False
 
@@ -312,6 +258,8 @@ def resolve_where(
 class at(Generic[T]):
     """Operate on a pytree at a given path using a path or mask in out-of-place manner.
 
+    Alias for :func:`.at`
+
     Args:
         tree: pytree to operate on.
         where: one of the following:
@@ -320,6 +268,7 @@ class at(Generic[T]):
             - ``int`` for positional indexing for sequences.
             - ``...`` to select all leaves.
             - a boolean mask of the same structure as the tree
+            - ``re.Pattern`` to match a leaf level path with a regex pattern.
             - a tuple of the above to match multiple keys at the same level.
 
     Note:
@@ -347,7 +296,7 @@ class at(Generic[T]):
         return type(self)(self.tree, [*self.where, where])
 
     def __repr__(self) -> str:
-        return f"{type(self).__name__}(tree={tree_repr(self.tree)}, where={self.where})"
+        return f"{type(self).__name__}({tree_repr(self.tree)}, where={self.where})"
 
     def get(
         self,
@@ -505,7 +454,6 @@ class at(Generic[T]):
             >>> is_parallel = dict(max_workers=2)
             >>> images = sp.at(path)[...].apply(imread, is_parallel=is_parallel)  # doctest: +SKIP
         """
-
         treelib = sepes._src.backend.treelib
 
         def leaf_apply(where: Any, leaf: Any):
@@ -713,15 +661,84 @@ class at(Generic[T]):
         treelib.flatten(tree, is_leaf=aggregate_subtrees)
         return subtrees
 
-# dispatch on type of indexer to convert input item to at indexer
-# `__getitem__` to the appropriate key
-# avoid using container pytree types to avoid conflict between
-# matching as a mask or as an instance of `BaseMatchKey`
 
 at.alias_dispatcher = ft.singledispatch(lambda x: x)
 at.def_alias = at.alias_dispatcher.register
-at.def_alias(type(...), EllipsisMatchKey)
-at.def_alias(int, IndexMatchKey)
-at.def_alias(str, RegexMatchKey)
-# backward compatibility
+# backwards compatibility
 AtIndexer = at
+
+
+# rules
+
+
+@at.def_alias(str)
+class NameMatchKey(BaseKey):
+    """Match a leaf with a given name."""
+
+    def __init__(self, name: str) -> None:
+        self.name = name
+
+    def __eq__(self, key: PathKeyEntry) -> bool:
+        if isinstance(key, str):
+            return self.name == key
+        treelib = sepes._src.backend.treelib
+        if isinstance(key, type(treelib.attribute_key(""))):
+            return self.name == key.name
+        if isinstance(key, type(treelib.dict_key(""))):
+            return self.name == key.key
+        return False
+
+
+@at.def_alias(int)
+class IndexKey(BaseKey):
+    """Match a leaf with a given index."""
+
+    def __init__(self, idx: int) -> None:
+        self.idx = idx
+
+    def __eq__(self, key: PathKeyEntry) -> bool:
+        if isinstance(key, int):
+            return self.idx == key
+        treelib = sepes._src.backend.treelib
+        if isinstance(key, type(treelib.sequence_key(0))):
+            return self.idx == key.idx
+        return False
+
+
+@at.def_alias(type(...))
+class EllipsisKey(BaseKey):
+    """Match all leaves."""
+
+    def __init__(self, _):
+        del _
+
+    def __eq__(self, _: PathKeyEntry) -> bool:
+        return True
+
+
+@at.def_alias(re.Pattern)
+class RegexKey(BaseKey):
+    """Match a leaf with a regex pattern inside 'at' property."""
+
+    def __init__(self, pattern: str) -> None:
+        self.pattern = pattern
+
+    def __eq__(self, key: PathKeyEntry) -> bool:
+        if isinstance(key, str):
+            return re.fullmatch(self.pattern, key) is not None
+        treelib = sepes._src.backend.treelib
+        if isinstance(key, type(treelib.attribute_key(""))):
+            return re.fullmatch(self.pattern, key.name) is not None
+        if isinstance(key, type(treelib.dict_key(""))):
+            return re.fullmatch(self.pattern, key.key) is not None
+        return False
+
+
+class MultiKey(BaseKey):
+    """Match a leaf with multiple keys at the same level."""
+
+    def __init__(self, *keys):
+        self.keys = tuple(keys)
+
+    def __eq__(self, entry: PathKeyEntry) -> bool:
+        return any(entry == key for key in self.keys)

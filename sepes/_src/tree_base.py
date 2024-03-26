@@ -39,7 +39,6 @@ S = TypeVar("S")
 PyTree = Any
 EllipsisType = type(Ellipsis)  # TODO: use typing.EllipsisType when available
 _mutable_instance_registry: set[int] = set()
-_kind_to_pprinter = dict(r=tree_repr, s=tree_str, d=tree_diagram, t=tree_summary)
 
 
 def add_mutable_entry(node) -> None:
@@ -309,11 +308,6 @@ class TreeClass(metaclass=TreeClassMeta):
 
     def __eq__(self, other: Any) -> bool:
         return is_tree_equal(self, other)
-
-    def __format__(self, spec: str) -> str:
-        depth, kind = spec[:-1], spec[-1]
-        depth = int(depth) if depth else float("inf")
-        return _kind_to_pprinter[kind](self, depth=depth)
 
 
 @tree_repr.def_type(TreeClass)

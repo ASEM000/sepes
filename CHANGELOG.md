@@ -2,30 +2,9 @@
 
 ## V0.12
 
-- Add sharding info in `tree_summary`, `G` for global, `S` for sharded shape.
-  
-    ```python
-    import jax
-    import sepes as sp
-    from jax.sharding import Mesh, NamedSharding as N, PartitionSpec as P
-    import numpy as np
-    import os
-    os.environ["XLA_FLAGS"] = "--xla_force_host_platform_device_count=8"
-    x = jax.numpy.ones([4 * 4, 2 * 2])
-    mesh = Mesh(devices=np.array(jax.devices()).reshape(4, 2), axis_names=["i", "j"])
-    sharding = N(mesh=mesh, spec=P("i", "j"))
-    x = jax.device_put(x, device=sharding)
+### Deprecations
 
-    print(sp.tree_summary(x))
-    ┌────┬───────────┬─────┬───────┐
-    │Name│Type       │Count│Size   │
-    ├────┼───────────┼─────┼───────┤
-    │Σ   │G:f32[16,4]│64   │256.00B│
-    │    │S:f32[4,2] │     │       │
-    └────┴───────────┴─────┴───────┘
-    ```
-
-- Reduce the API size by removing:
+- Reduce the core API size by removing:
   1)  `tree_graph` (for graphviz)
   2)  `tree_mermaid` (mermaidjs)
   3)  `Partial/partial` -> Use `jax.tree_util.Partial` instead.
@@ -33,6 +12,7 @@
   5) `freeze`  -> Use `ft.partial(tree_mask, lambda _: True)` instead.
   6)  `unfreeze` -> Use `tree_unmask` instead.
 
+### Changes
 
 - `tree_{mask,unmask}` now accepts only callable `cond` argument.
   
@@ -46,15 +26,17 @@
     where = [[True, False], True]  # mask tree[0][1] and tree[1]
     mask = ft.partial(sp.tree_mask, cond=lambda _: True)
     sp.at(tree)[where].apply(mask)  # apply using `at`
-    [[#1, 2], #3]
+    # [[#1, 2], #3]
     # or simply apply to the node directly
     tree = [[mask(1), 2], mask(3)]
-    [[#1, 2], #3]
+    # [[#1, 2], #3]
     ```
 
 - Rename `is_frozen` to `is_masked`
   - frozen could mean non-trainable array, however the masking is not only for arrays but also for other types that will be hidden across jax transformations.
-  
+
+### Additions
+
 - Add `fill_value` in `at[...].get(fill_value=...)` to add default value for non
   selected leaves. Useful for arrays under `jax.jit` to avoid variable size related errors.
   
@@ -78,6 +60,29 @@
     # copied mutated input argument, if the function mutates the input arguments
     sp.value_and_tree(lambda C: C.increment(1))(counter)
     # (1, Counter(count=1))
+    ```
+
+- Add sharding info in `tree_summary`, `G` for global, `S` for sharded shape.
+  
+    ```python
+    import jax
+    import sepes as sp
+    from jax.sharding import Mesh, NamedSharding as N, PartitionSpec as P
+    import numpy as np
+    import os
+    os.environ["XLA_FLAGS"] = "--xla_force_host_platform_device_count=8"
+    x = jax.numpy.ones([4 * 4, 2 * 2])
+    mesh = Mesh(devices=np.array(jax.devices()).reshape(4, 2), axis_names=["i", "j"])
+    sharding = N(mesh=mesh, spec=P("i", "j"))
+    x = jax.device_put(x, device=sharding)
+
+    print(sp.tree_summary(x))
+    ┌────┬───────────┬─────┬───────┐
+    │Name│Type       │Count│Size   │
+    ├────┼───────────┼─────┼───────┤
+    │Σ   │G:f32[16,4]│64   │256.00B│
+    │    │S:f32[4,2] │     │       │
+    └────┴───────────┴─────┴───────┘
     ```
 
 - Updated docstrings. e.g. How to construct flops counter in `tree_summary` using `jax.jit`

@@ -12,19 +12,27 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Define lens-like indexing/masking for pytrees."""
+"""Define lens-like indexing for pytrees
 
-# enable get/set/apply/scan/reduce operations on selected parts of a nested
-# structure -pytree- in out-of-place manner. this process invovles defining two
-# parts: 1) *where* to select the parts of the pytree and 2) *what* to do with
-# the selected parts. the *where* part is defined either by a path or a boolean
-# mask. the *what* part is defined by a set value, or a function to apply to
-# the selected parts. once we have a *final* boolean mask that encompasses all
-# path and the boolean mask, we can use `tree_map` to apply the *what* part to
-# the *where* part. for example, for a tree = [[1, 2], 3, 4] and boolean mask
-# [[True, False], False, True] and path mask [0][1], then we select only leaf
-# 1 that is at the intersection of the boolean mask and the path mask. then we
-# apply the *what* part to the *where* part.
+This module provides a way to index and mask pytrees (e.g. TreeClass) in an 
+out-of-place manner.Out-of-place means that the original pytree is not modified, 
+instead a new pytree with the selected leaves are modified.
+
+The indexing is done through two concepts:
+
+1) Selection (Where): Determines parts of the pytree for manipulation via a path or a boolean mask.
+2) Operation (What): Defines actions on selected parts, such as setting values or applying functions.
+
+For example, the following code defines a dict pytree with where of same structure 
+as the tree. The where (Selection) defines which parts of the tree to select and 
+the set (Operation) operation sets the selected parts to 100.
+
+>>> import sepes as sp
+>>> tree = {"a": 1, "b": [1, 2, 3]}
+>>> where = {"a": True, "b": [False, True, False]}
+>>> sp.at(tree)[where].set(100)
+{'a': 100, 'b': [1, 100, 3]}
+"""
 
 from __future__ import annotations
 

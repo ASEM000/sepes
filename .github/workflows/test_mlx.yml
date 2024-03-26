@@ -1,4 +1,4 @@
-name: numpy backend
+name: mlx backend
 
 on:
   - push
@@ -11,7 +11,7 @@ jobs:
       PYTREECLASS_BACKEND: numpy
     strategy:
       matrix:
-        os: [macos-latest]
+        os: [macos-14]
         python-version: ["3.8", "3.9", "3.10", "3.11", "3.12"]
 
     steps:

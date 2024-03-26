@@ -286,6 +286,9 @@ class TreeClass(metaclass=TreeClassMeta):
             - ``pytree.at[*][**]`` is equivalent to selecting pytree.*.** .
             - ``pytree.at[*, **]`` is equivalent selecting pytree.* and pytree.**
         """
+        # NOTE: use `at` as a property to enable chaining syntax.
+        # instead of at(at(tree)[...].apply(...))[...].set(...)
+        # chaining syntax is tree.at[...].apply(...).at[...].set(...)
         return AtIndexer(self)
 
     def __repr__(self) -> str:

@@ -1,6 +1,6 @@
 # Changelog
 
-## V0.11.4
+## V0.12
 
 - Add sharding info in `tree_summary`, `G` for global, `S` for sharded shape.
   
@@ -25,19 +25,37 @@
     └────┴───────────┴─────┴───────┘
     ```
 
-- Reduce the API and remove:
-  -  `tree_graph` (for graphviz)
-  -  `tree_mermaid` (mermaidjs)
-  -  `Partial/partial` -> Use `jax.tree_util.partial` instead.
-  -  `is_tree_equal` -> Use `bcmap(numpy.testing.assert_*)(pytree1, pytree2)` instead.
-  -  `freeze`  -> Use `ft.partial(tree_mask, lambda _: True)` instead.
-  -  `unfreeze` -> Use `tree_unmask` instead.
+- Reduce the API size by removing:
+  1)  `tree_graph` (for graphviz)
+  2)  `tree_mermaid` (mermaidjs)
+  3)  `Partial/partial` -> Use `jax.tree_util.Partial` instead.
+  4)  `is_tree_equal` -> Use `bcmap(numpy.testing.*)(pytree1, pytree2)` instead.
+  5) `freeze`  -> Use `ft.partial(tree_mask, lambda _: True)` instead.
+  6)  `unfreeze` -> Use `tree_unmask` instead.
+
 
 - `tree_{mask,unmask}` now accepts only callable `cond` argument.
+  
+   For masking using pytree boolean mask use the following pattern:
+    
+    ```python
+    import jax
+    import sepes as sp
+    import functools as ft
+    tree = [[1, 2], 3] # the nested tree
+    where = [[True, False], True]  # mask tree[0][1] and tree[1]
+    mask = ft.partial(sp.tree_mask, cond=lambda _: True)
+    sp.at(tree)[where].apply(mask)  # apply using `at`
+    [[#1, 2], #3]
+    # or simply apply to the node directly
+    tree = [[mask(1), 2], mask(3)]
+    [[#1, 2], #3]
+    ```
+
 - Rename `is_frozen` to `is_masked`
   - frozen could mean non-trainable array, however the masking is not only for arrays but also for other types that will be hidden across jax transformations.
   
-- Add `fill_value` for `at[...].get(fill_value=...)` to add default value for non
+- Add `fill_value` in `at[...].get(fill_value=...)` to add default value for non
   selected leaves. Useful for arrays under `jax.jit` to avoid variable size related errors.
   
 ## V0.11.3

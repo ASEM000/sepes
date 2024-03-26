@@ -347,11 +347,9 @@ class at(Generic[T]):
                 return leaf[where]
             # non-array boolean mask we select the leaf if the mask is True
             # and `None` otherwise
-            return (
-                leaf
-                if where
-                else (None if fill_value is _no_fill_value else fill_value)
-            )
+            if fill_value is not _no_fill_value:
+                return leaf if where else fill_value
+            return leaf if where else None
 
         return treelib.map(
             leaf_get,
@@ -682,7 +680,7 @@ at.def_alias = at.alias_dispatcher.register
 AtIndexer = at
 
 
-# rules
+# key rules
 
 
 @at.def_alias(str)

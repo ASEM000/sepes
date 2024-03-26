@@ -61,7 +61,7 @@ __all__ = (
     "backend_context",
 )
 
-__version__ = "0.11.4"
+__version__ = "0.12.0"
 
-AtIndexer.__module__ = "sepes"
+at.__module__ = "sepes"
 TreeClass.__module__ = "sepes"

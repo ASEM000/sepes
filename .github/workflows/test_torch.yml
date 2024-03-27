@@ -7,8 +7,7 @@ on:
 jobs:
   test:
     runs-on: ${{ matrix.os }}
-    env:
-      PYTREECLASS_BACKEND: numpy
+    
     strategy:
       matrix:
         os: [ubuntu-latest]

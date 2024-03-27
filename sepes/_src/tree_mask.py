@@ -92,6 +92,11 @@ def _(node) -> str:
     return f"#{tree_summary.type_dispatcher(node.__wrapped__)}"
 
 
+def hash_array(value: T) -> int:
+    bytes = arraylib.tobytes(value)
+    return int(hashlib.sha256(bytes).hexdigest(), 16)
+
+
 class _MaskedHashable(_MaskBase):
     def __hash__(self) -> int:
         return tree_hash(self.__wrapped__)
@@ -120,7 +125,7 @@ class _MaskedArray(_MaskBase):
             return False
         if arraylib.dtype(lhs) != arraylib.dtype(rhs):
             return False
-        return arraylib.all(lhs == rhs)
+        return arraylib.array_equal(lhs, rhs)
 
 
 def mask(value: T) -> _MaskBase[T]:

@@ -16,15 +16,17 @@
 
 from __future__ import annotations
 
+import copy
 import functools as ft
 import operator as op
-import copy
 from math import ceil, floor, trunc
-from typing import Any, Callable, Hashable, Iterator, Sequence, Tuple, TypeVar, Generic
+from typing import Any, Callable, Generic, Hashable, Iterator, Sequence, Tuple, TypeVar
+
+from typing_extensions import ParamSpec
+
+import sepes
 import sepes._src.backend.arraylib as arraylib
 from sepes._src.backend import is_package_avaiable
-from typing_extensions import ParamSpec
-import sepes
 
 T = TypeVar("T")
 T1 = TypeVar("T1")

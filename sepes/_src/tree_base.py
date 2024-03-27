@@ -19,14 +19,13 @@ from __future__ import annotations
 import abc
 from typing import Any, Hashable, TypeVar
 
-from typing_extensions import Unpack
+from typing_extensions import Self, Unpack
 
 import sepes
 from sepes._src.code_build import fields
+from sepes._src.tree_index import AtIndexer
 from sepes._src.tree_pprint import PPSpec, tree_repr, tree_str
 from sepes._src.tree_util import is_tree_equal, tree_copy, tree_hash, value_and_tree
-from typing_extensions import Self
-from sepes._src.tree_index import AtIndexer
 
 T = TypeVar("T", bound=Hashable)
 S = TypeVar("S")

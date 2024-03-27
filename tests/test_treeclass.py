@@ -15,11 +15,12 @@
 import copy
 import dataclasses as dc
 import inspect
+import os
 from typing import Any
 
 import numpy.testing as npt
 import pytest
-import os
+
 from sepes._src.backend import backend, treelib
 from sepes._src.code_build import (
     autoinit,
@@ -29,8 +30,8 @@ from sepes._src.code_build import (
     fields,
 )
 from sepes._src.tree_base import TreeClass
-from sepes._src.tree_util import partial, is_tree_equal, value_and_tree
 from sepes._src.tree_mask import tree_mask
+from sepes._src.tree_util import is_tree_equal, partial, value_and_tree
 
 freeze = lambda x: tree_mask(x, cond=lambda _: True)
 

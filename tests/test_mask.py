@@ -13,6 +13,8 @@
 # limitations under the License.
 
 import copy
+import functools as ft
+import os
 from typing import Any
 
 import pytest
@@ -20,13 +22,7 @@ import pytest
 from sepes._src.backend import backend, treelib
 from sepes._src.code_build import autoinit
 from sepes._src.tree_base import TreeClass
-from sepes._src.tree_mask import (
-    is_masked,
-    tree_mask,
-    tree_unmask,
-)
-import functools as ft
-import os
+from sepes._src.tree_mask import is_masked, tree_mask, tree_unmask
 from sepes._src.tree_util import is_tree_equal, leafwise, tree_hash
 
 test_arraylib = os.environ.get("SEPES_TEST_ARRAYLIB", "numpy")

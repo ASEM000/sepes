@@ -15,6 +15,7 @@
 from __future__ import annotations
 
 import math
+import os
 from typing import Any
 
 import pytest
@@ -22,10 +23,8 @@ import pytest
 from sepes._src.backend import backend
 from sepes._src.code_build import autoinit, field
 from sepes._src.tree_base import TreeClass
-from sepes._src.tree_util import bcmap, is_tree_equal, leafwise
-import os
-
 from sepes._src.tree_mask import tree_mask
+from sepes._src.tree_util import bcmap, is_tree_equal, leafwise
 
 freeze = lambda x: tree_mask(x, cond=lambda _: True)
 

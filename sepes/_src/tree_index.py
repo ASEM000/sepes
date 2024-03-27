@@ -35,7 +35,7 @@ the set (Operation) operation sets the selected parts to 100.
 """
 
 from __future__ import annotations
-from sepes._src.backend import is_package_avaiable
+
 import abc
 import functools as ft
 import re
@@ -45,6 +45,7 @@ from typing_extensions import Self
 
 import sepes
 import sepes._src.backend.arraylib as arraylib
+from sepes._src.backend import is_package_avaiable
 from sepes._src.backend.treelib import ParallelConfig
 from sepes._src.tree_pprint import tree_repr
 
@@ -177,6 +178,7 @@ def resolve_where(
     is_leaf: Callable[[Any], bool] | None = None,
 ):
     treelib = sepes._src.backend.treelib
+    ndarrays = tuple(arraylib.ndarrays)
 
     def combine_bool_leaves(*leaves):
         # given a list of boolean leaves, combine them using `and`
@@ -188,7 +190,7 @@ def resolve_where(
         return verdict
 
     def is_bool_leaf(leaf: Any) -> bool:
-        if isinstance(leaf, arraylib.ndarrays):
+        if isinstance(leaf, ndarrays):
             return arraylib.is_bool(leaf)
         return isinstance(leaf, bool)
 
@@ -342,6 +344,7 @@ class at(Generic[T]):
             {'a': None, 'b': [1, None, None]}
         """
         treelib = sepes._src.backend.treelib
+        ndarrays = tuple(arraylib.ndarrays)
 
         def leaf_get(where: Any, leaf: Any):
             # support both array and non-array leaves
@@ -349,7 +352,7 @@ class at(Generic[T]):
             # matches the mask, for example if the mask is Array([True, False, False])
             # and the leaf is Array([1, 2, 3]) then the result is Array([1])
             # because of the variable resultant size of the output
-            if isinstance(where, arraylib.ndarrays) and len(arraylib.shape(where)):
+            if isinstance(where, ndarrays) and len(arraylib.shape(where)):
                 if fill_value is not _no_fill_value:
                     return arraylib.where(where, leaf, fill_value)
                 return leaf[where]
@@ -398,6 +401,7 @@ class at(Generic[T]):
             {'a': 1, 'b': [100, 2, 3]}
         """
         treelib = sepes._src.backend.treelib
+        ndarrays = tuple(arraylib.ndarrays)
 
         def leaf_set(where: Any, leaf: Any, set_value: Any):
             # support both array and non-array leaves
@@ -405,7 +409,7 @@ class at(Generic[T]):
             # matches the mask, for example if the mask is Array([True, False, False])
             # and the leaf is Array([1, 2, 3]) then the result is Array([1, 100, 100])
             # with set_value = 100
-            if isinstance(where, arraylib.ndarrays):
+            if isinstance(where, ndarrays):
                 return arraylib.where(where, set_value, leaf)
             return set_value if where else leaf
 
@@ -475,13 +479,14 @@ class at(Generic[T]):
             >>> images = sp.at(path)[...].apply(imread, is_parallel=is_parallel)  # doctest: +SKIP
         """
         treelib = sepes._src.backend.treelib
+        ndarrays = tuple(arraylib.ndarrays)
 
         def leaf_apply(where: Any, leaf: Any):
             # same as `leaf_set` but with `func` applied to the leaf
             # one thing to note is that, the where mask select an array
             # then the function needs work properly when applied to the selected
             # array elements
-            if isinstance(where, arraylib.ndarrays):
+            if isinstance(where, ndarrays):
                 return arraylib.where(where, func(leaf), leaf)
             return func(leaf) if where else leaf
 
@@ -534,6 +539,7 @@ class at(Generic[T]):
             leaf values while carrying a state and returning a single value.
         """
         treelib = sepes._src.backend.treelib
+        ndarrays = tuple(arraylib.ndarrays)
         running_state = state
 
         def stateless_func(leaf):
@@ -542,7 +548,7 @@ class at(Generic[T]):
             return leaf
 
         def leaf_apply(where: Any, leaf: Any):
-            if isinstance(where, arraylib.ndarrays):
+            if isinstance(where, ndarrays):
                 return arraylib.where(where, stateless_func(leaf), leaf)
             return stateless_func(leaf) if where else leaf
 

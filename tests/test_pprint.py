@@ -15,11 +15,11 @@
 from __future__ import annotations
 
 import dataclasses as dc
+import os
 from collections import namedtuple
 from typing import Any
 
 import pytest
-import os
 
 test_arraylib = os.environ.get("SEPES_TEST_ARRAYLIB", "numpy")
 backend = os.environ.get("SEPES_BACKEND", "jax")

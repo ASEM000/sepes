@@ -14,12 +14,13 @@
 
 from __future__ import annotations
 
-
-from jax import Array
 import jax.numpy as jnp
+import numpy as np
+from jax import Array
+
 import sepes._src.backend.arraylib as arraylib
 
-arraylib.tobytes.register(Array, lambda x: jnp.array(x).tobytes())
+arraylib.tobytes.register(Array, lambda x: np.array(x).tobytes())
 arraylib.where.register(Array, jnp.where)
 arraylib.nbytes.register(Array, lambda x: x.nbytes)
 arraylib.shape.register(Array, jnp.shape)
@@ -29,8 +30,9 @@ arraylib.max.register(Array, jnp.max)
 arraylib.mean.register(Array, jnp.mean)
 arraylib.std.register(Array, jnp.std)
 arraylib.all.register(Array, jnp.all)
+arraylib.array_equal.register(Array, np.array_equal)  # NOTE: not traceable
 arraylib.is_floating.register(Array, lambda x: jnp.issubdtype(x.dtype, jnp.floating))
 arraylib.is_integer.register(Array, lambda x: jnp.issubdtype(x.dtype, jnp.integer))
 arraylib.is_inexact.register(Array, lambda x: jnp.issubdtype(x.dtype, jnp.inexact))
 arraylib.is_bool.register(Array, lambda x: jnp.issubdtype(x.dtype, jnp.bool_))
-arraylib.ndarrays += (Array,)
+arraylib.ndarrays.append(Array)

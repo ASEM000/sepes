@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import numpy as np
 from numpy import ndarray
+
 import sepes._src.backend.arraylib as arraylib
 
 arraylib.tobytes.register(ndarray, lambda x: np.array(x).tobytes())
@@ -28,8 +29,9 @@ arraylib.max.register(ndarray, np.max)
 arraylib.mean.register(ndarray, np.mean)
 arraylib.std.register(ndarray, np.std)
 arraylib.all.register(ndarray, np.all)
+arraylib.array_equal.register(ndarray, np.array_equal)
 arraylib.is_floating.register(ndarray, lambda x: np.issubdtype(x.dtype, np.floating))
 arraylib.is_integer.register(ndarray, lambda x: np.issubdtype(x.dtype, np.integer))
 arraylib.is_inexact.register(ndarray, lambda x: np.issubdtype(x.dtype, np.inexact))
 arraylib.is_bool.register(ndarray, lambda x: np.issubdtype(x.dtype, np.bool_))
-arraylib.ndarrays += (ndarray,)
+arraylib.ndarrays.append(ndarray)

@@ -35,7 +35,7 @@ the set (Operation) operation sets the selected parts to 100.
 """
 
 from __future__ import annotations
-
+from sepes._src.backend import is_package_avaiable
 import abc
 import functools as ft
 import re
@@ -226,7 +226,7 @@ def resolve_where(
             bool_masks += [node]
             return True
 
-        if isinstance(resolved_key := at.alias_dispatcher(node), BaseKey):
+        if isinstance(resolved_key := at.key_dispatcher(node), BaseKey):
             # valid resolution of `BaseKey` is a valid indexing leaf
             # makes it possible to dispatch on multi-leaf pytree
             level_paths += [resolved_key]
@@ -682,8 +682,9 @@ class at(Generic[T]):
         return subtrees
 
 
-at.alias_dispatcher = ft.singledispatch(lambda x: x)
-at.def_alias = at.alias_dispatcher.register
+# pass through for boolean pytrees masks and tuple of keys
+at.key_dispatcher = ft.singledispatch(lambda x: x)
+at.def_key = at.key_dispatcher.register
 # backwards compatibility
 AtIndexer = at
 
@@ -691,7 +692,7 @@ AtIndexer = at
 # key rules
 
 
-@at.def_alias(str)
+@at.def_key(str)
 class NameMatchKey(BaseKey):
     """Match a leaf with a given name."""
 
@@ -709,7 +710,7 @@ class NameMatchKey(BaseKey):
         return False
 
 
-@at.def_alias(int)
+@at.def_key(int)
 class IndexKey(BaseKey):
     """Match a leaf with a given index."""
 
@@ -725,7 +726,7 @@ class IndexKey(BaseKey):
         return False
 
 
-@at.def_alias(type(...))
+@at.def_key(type(...))
 class EllipsisKey(BaseKey):
     """Match all leaves."""
 
@@ -736,7 +737,7 @@ class EllipsisKey(BaseKey):
         return True
 
 
-@at.def_alias(re.Pattern)
+@at.def_key(re.Pattern)
 class RegexKey(BaseKey):
     """Match a path with a regex pattern inside 'at' property."""
 
@@ -762,3 +763,19 @@ class MultiKey(BaseKey):
 
     def __eq__(self, entry: PathKeyEntry) -> bool:
         return any(entry == key for key in self.keys)
+
+
+if is_package_avaiable("jax"):
+    import jax.tree_util as jtu
+
+    @at.def_key(jtu.SequenceKey)
+    @at.def_key(jtu.GetAttrKey)
+    @at.def_key(jtu.DictKey)
+    class JaxKey(BaseKey):
+        """Enable indexing with jax keys directly in `at`."""
+
+        def __init__(self, key) -> None:
+            self.key = key
+
+        def __eq__(self, value) -> bool:
+            return self.key == value

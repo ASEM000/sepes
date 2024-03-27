@@ -39,6 +39,7 @@
 
 - Add `fill_value` in `at[...].get(fill_value=...)` to add default value for non
   selected leaves. Useful for arrays under `jax.jit` to avoid variable size related errors.
+- Add `jax.tree_util.{SequenceKey,GetAttrKey,DictKey}` as valid path keys in `at[...]`.
   
 ## V0.11.3
 

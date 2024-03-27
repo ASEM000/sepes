@@ -22,8 +22,9 @@ from typing import Callable, NamedTuple
 class NoImplError(NamedTuple):
     op: Callable
 
-    def __call__(self, *_, **__):
-        raise NotImplementedError(f"No implementation for {self.op}")
+    def __call__(self, *args, **kwargs):
+        raise NotImplementedError(f"No implementation for {self.op}"
+                                  f" with {args=} {kwargs=}")
 
 
 tobytes = ft.singledispatch(NoImplError("tobytes"))

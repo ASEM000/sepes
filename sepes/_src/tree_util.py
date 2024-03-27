@@ -82,14 +82,17 @@ def is_array_like(node) -> bool:
     return hasattr(node, "shape") and hasattr(node, "dtype")
 
 
-def _is_leaf_rhs_equal(leaf, rhs) -> bool:
+def _is_leaf_rhs_equal(leaf, rhs):
     if is_array_like(leaf):
         if is_array_like(rhs):
             if leaf.shape != rhs.shape:
                 return False
             if leaf.dtype != rhs.dtype:
                 return False
-            verdict = arraylib.all(leaf == rhs)
+            try:
+                verdict = arraylib.all(leaf == rhs)
+            except NotImplementedError:
+                verdict = leaf == rhs
             try:
                 return bool(verdict)
             except Exception:

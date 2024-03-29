@@ -570,6 +570,21 @@ for ndarray in arraylib.ndarrays:
         return tree_repr(ShapeDTypePP(shape, dtype))
 
 
+@tree_summary.def_type(tuple)
+def _(node: tuple) -> str:
+    # - output tuple[types,...] instead of just tuple in the type row.
+    # - usually this encounterd if the tree_summary depth is not inf
+    #   so the tree leaves could contain non-atomic types.
+    treelib = sepes._src.backend.treelib
+
+    one_level_types = treelib.map(
+        tree_summary.type_dispatcher,
+        node,
+        is_leaf=lambda x: False if id(x) == id(node) else True,
+    )
+    return f"tuple[{','.join(one_level_types)}]"
+
+
 if is_package_avaiable("jax"):
     # jax pretty printing extra handlers
     import jax

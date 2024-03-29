@@ -5,7 +5,9 @@
    :maxdepth: 2
    :caption: API Documentation
 
-   core
+   module
    masking
+   tree
+   constructor
    pretty_print
    backend

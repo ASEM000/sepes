@@ -23,8 +23,6 @@ from sepes._src.tree_util import bcmap, leafwise, value_and_tree
 __all__ = (
     # module utils
     "TreeClass",
-    "value_and_tree",
-    "leafwise",
     # pprint utils
     "tree_diagram",
     "tree_repr",
@@ -34,14 +32,15 @@ __all__ = (
     "is_masked",
     "tree_unmask",
     "tree_mask",
-    # indexing utils
-    "at",
     # tree utils
+    "at",
     "bcmap",
+    "value_and_tree",
     # construction utils
     "field",
     "fields",
     "autoinit",
+    "leafwise",
     # backend utils
     "backend_context",
 )

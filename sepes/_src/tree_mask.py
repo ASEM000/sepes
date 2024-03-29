@@ -202,9 +202,6 @@ def _tree_mask_map(
     *,
     is_leaf: Callable[[Any], None] | None = None,
 ):
-    treelib = sepes._src.backend.treelib
-    # apply func to leaves satisfying mask pytree/condtion
-    _, lhsdef = treelib.flatten(tree, is_leaf=is_leaf)
 
     if not isinstance(cond, Callable):
         # a callable that accepts a leaf and returns a boolean
@@ -213,6 +210,8 @@ def _tree_mask_map(
             f"`cond` must be a callable that accepts a leaf and returns a boolean "
             f" Got {cond=} and {tree=}."
         )
+
+    treelib = sepes._src.backend.treelib
 
     def map_func(x):
         return func(x) if cond(x) else x

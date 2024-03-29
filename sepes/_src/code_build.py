@@ -294,6 +294,7 @@ def field(
         Buffer creation using :attr:`on_getattr`:
 
         >>> import sepes as sp
+        >>> import jax
         >>> import jax.numpy as jnp
         >>> @sp.autoinit
         ... class Tree(sp.TreeClass):
@@ -308,6 +309,7 @@ def field(
         Parameterization using :attr:`on_getattr`:
 
         >>> import sepes as sp
+        >>> import jax
         >>> import jax.numpy as jnp
         >>> def symmetric(array: jax.Array) -> jax.Array:
         ...    triangle = jnp.triu(array)  # upper triangle

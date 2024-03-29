@@ -92,11 +92,6 @@ def _(node) -> str:
     return f"#{tree_summary.type_dispatcher(node.__wrapped__)}"
 
 
-def hash_array(value: T) -> int:
-    bytes = arraylib.tobytes(value)
-    return int(hashlib.sha256(bytes).hexdigest(), 16)
-
-
 class _MaskedHashable(_MaskBase):
     def __hash__(self) -> int:
         return tree_hash(self.__wrapped__)
@@ -266,8 +261,9 @@ def tree_mask(
     Args:
         tree: A pytree of values.
         cond: A callable that accepts a leaf and returns a boolean to mark the leaf
-            for masking. Defaults to :func:`.is_nondiff` which returns true for
-            non-differentiable nodes.
+            for masking. Defaults to masking non-differentiable leaf nodes that 
+            are not instances of of python float, python complex, or inexact 
+            array types.
         is_leaf: A callable that accepts a leaf and returns a boolean. If
             provided, it is used to determine if a value is a leaf. for example,
             ``is_leaf=lambda x: isinstance(x, list)`` will treat lists as leaves

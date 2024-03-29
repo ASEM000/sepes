@@ -11,6 +11,8 @@
   4)  `is_tree_equal` -> Use `bcmap(numpy.testing.*)(pytree1, pytree2)` instead.
   5) `freeze`  -> Use `ft.partial(tree_mask, lambda _: True)` instead.
   6)  `unfreeze` -> Use `tree_unmask` instead.
+  7) `is_nondiff`
+
 
 ### Changes
 

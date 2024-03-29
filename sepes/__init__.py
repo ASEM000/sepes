@@ -16,23 +16,21 @@ from sepes._src.backend import backend_context
 from sepes._src.code_build import autoinit, field, fields
 from sepes._src.tree_base import TreeClass
 from sepes._src.tree_index import at
-from sepes._src.tree_mask import is_masked, is_nondiff, tree_mask, tree_unmask
+from sepes._src.tree_mask import is_masked, tree_mask, tree_unmask
 from sepes._src.tree_pprint import tree_diagram, tree_repr, tree_str, tree_summary
 from sepes._src.tree_util import bcmap, leafwise, value_and_tree
 
 __all__ = (
-    # general utils
+    # module utils
     "TreeClass",
-    "field",
-    "fields",
-    "autoinit",
+    "value_and_tree",
+    "leafwise",
     # pprint utils
     "tree_diagram",
     "tree_repr",
     "tree_str",
     "tree_summary",
     # masking utils
-    "is_nondiff",
     "is_masked",
     "tree_unmask",
     "tree_mask",
@@ -40,8 +38,10 @@ __all__ = (
     "at",
     # tree utils
     "bcmap",
-    "leafwise",
-    "value_and_tree",
+    # construction utils
+    "field",
+    "fields",
+    "autoinit",
     # backend utils
     "backend_context",
 )

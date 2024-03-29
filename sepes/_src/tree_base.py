@@ -23,7 +23,7 @@ from typing_extensions import Self, Unpack
 
 import sepes
 from sepes._src.code_build import fields
-from sepes._src.tree_index import AtIndexer
+from sepes._src.tree_index import at
 from sepes._src.tree_pprint import PPSpec, tree_repr, tree_str
 from sepes._src.tree_util import is_tree_equal, tree_copy, tree_hash, value_and_tree
 
@@ -247,7 +247,7 @@ class TreeClass(metaclass=TreeClassMeta):
         getattr(object, "__delattr__")(self, key)
 
     @property
-    def at(self) -> AtIndexer[Self]:
+    def at(self) -> at[Self]:
         """Immutable out-of-place indexing.
 
         - ``.at[***].get()``:
@@ -288,7 +288,7 @@ class TreeClass(metaclass=TreeClassMeta):
         # NOTE: use `at` as a property to enable chaining syntax.
         # instead of at(at(tree)[...].apply(...))[...].set(...)
         # chaining syntax is tree.at[...].apply(...).at[...].set(...)
-        return AtIndexer(self)
+        return at(self)
 
     def __repr__(self) -> str:
         return tree_repr(self)

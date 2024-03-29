@@ -23,7 +23,7 @@ import pytest
 from sepes._src.backend import arraylib, backend, treelib
 from sepes._src.code_build import autoinit
 from sepes._src.tree_base import TreeClass, _mutable_instance_registry
-from sepes._src.tree_index import AtIndexer, BaseKey
+from sepes._src.tree_index import at, BaseKey
 from sepes._src.tree_util import is_tree_equal, leafwise, value_and_tree
 
 test_arraylib = os.environ.get("SEPES_TEST_ARRAYLIB", "numpy")
@@ -117,7 +117,7 @@ _X = 1_000
     ],
 )
 def test_indexer_get(tree, expected, where):
-    indexer = AtIndexer(tree, where=where)
+    indexer = at(tree, where=where)
     assert is_tree_equal(indexer.get(), expected)
     assert is_tree_equal(indexer.get(is_parallel=True), expected)
 
@@ -150,7 +150,7 @@ def test_indexer_get(tree, expected, where):
     ],
 )
 def test_array_indexer_get(tree, expected, where):
-    indexer = AtIndexer(tree, where=where)
+    indexer = at(tree, where=where)
     assert is_tree_equal(indexer.get(), expected)
     assert is_tree_equal(indexer.get(is_parallel=True), expected)
 
@@ -168,7 +168,7 @@ def test_get_fill_value():
 
     @jax.jit
     def jit_func(tree):
-        return AtIndexer(tree)[mask].get(fill_value=0)
+        return at(tree)[mask].get(fill_value=0)
 
     out = jit_func(tree)
     a = out["a"]
@@ -213,7 +213,7 @@ def test_get_fill_value():
     ],
 )
 def test_indexer_set(tree, expected, where, set_value):
-    indexer = AtIndexer(tree, where=where)
+    indexer = at(tree, where=where)
     assert is_tree_equal(indexer.set(set_value), expected)
     assert is_tree_equal(indexer.set(set_value, is_parallel=True), expected)
 
@@ -255,7 +255,7 @@ def test_indexer_set(tree, expected, where, set_value):
     ],
 )
 def test_array_indexer_set(tree, expected, where, set_value):
-    indexer = AtIndexer(tree, where=where)
+    indexer = at(tree, where=where)
     assert is_tree_equal(indexer.set(set_value), expected)
     assert is_tree_equal(indexer.set(set_value, is_parallel=True), expected)
 
@@ -290,7 +290,7 @@ def test_array_indexer_set(tree, expected, where, set_value):
     ],
 )
 def test_indexer_apply(tree, expected, where):
-    indexer = AtIndexer(tree, where=where)
+    indexer = at(tree, where=where)
     assert is_tree_equal(indexer.apply(lambda _: _X), expected)
     assert is_tree_equal(
         indexer.apply(lambda _: _X, is_parallel=True),
@@ -329,7 +329,7 @@ def test_indexer_apply(tree, expected, where):
     ],
 )
 def test_array_indexer_apply(tree, expected, where):
-    indexer = AtIndexer(tree, where=where)
+    indexer = at(tree, where=where)
     assert is_tree_equal(indexer.apply(lambda _: _X), expected)
     assert is_tree_equal(
         indexer.apply(lambda _: _X, is_parallel=True),
@@ -365,7 +365,7 @@ def test_array_indexer_apply(tree, expected, where):
     ],
 )
 def test_indexer_reduce(tree, expected, where):
-    indexer = AtIndexer(tree, where=where)
+    indexer = at(tree, where=where)
     assert is_tree_equal(
         indexer.reduce(lambda x, y: x + y, initializer=0),
         expected,
@@ -400,7 +400,7 @@ def test_indexer_reduce(tree, expected, where):
     ],
 )
 def test_array_indexer_reduce(tree, expected, where):
-    indexer = AtIndexer(tree, where=where)
+    indexer = at(tree, where=where)
     assert is_tree_equal(
         indexer.reduce(lambda x, y: x + y, initializer=0),
         expected,
@@ -427,7 +427,7 @@ def test_array_indexer_reduce(tree, expected, where):
     ],
 )
 def test_indexer_scan(tree, expected, where):
-    indexer = AtIndexer(tree, where=where)
+    indexer = at(tree, where=where)
     assert is_tree_equal(
         indexer.scan(lambda x, s: (x + s, x), state=0),
         expected,
@@ -502,7 +502,7 @@ def test_call_context():
 def test_unsupported_where(where):
     t = namedtuple("a", ["x", "y"])(1, 2)
     with pytest.raises(NotImplementedError):
-        AtIndexer(t, where=where).get()
+        at(t, where=where).get()
 
 
 @pytest.mark.skipif(backend != "jax", reason="jax backend needed")
@@ -518,7 +518,7 @@ def test_custom_key_jax():
 
         @property
         def at(self):
-            return AtIndexer(self)
+            return at(self)
 
     if backend == "jax":
         import jax.tree_util as jtu
@@ -555,7 +555,7 @@ def test_custom_key_optreee():
 
         @property
         def at(self):
-            return AtIndexer(self)
+            return at(self)
 
     import optree as ot
 
@@ -604,19 +604,19 @@ def test_repr_str():
 
 def test_compat_mask():
     tree = [1, 2, [3, 4]]
-    tree_ = AtIndexer(tree)[[False, False, True]].set(10)
+    tree_ = at(tree)[[False, False, True]].set(10)
     assert tree_ == [1, 2, 10]
 
 
 def test_pluck():
     tree = [1, 2, [3, 4]]
-    subtrees = AtIndexer(tree)[2].pluck()
+    subtrees = at(tree)[2].pluck()
     assert subtrees[0] == [3, 4]
-    assert AtIndexer(tree)[0, 1].pluck(1) == [1]
-    assert AtIndexer(tree)[0, 1].pluck(2) == [1, 2]
+    assert at(tree)[0, 1].pluck(1) == [1]
+    assert at(tree)[0, 1].pluck(2) == [1, 2]
 
     tree = dict(a=1, b=2)
-    assert AtIndexer(tree)[...].pluck() == [1, 2]
+    assert at(tree)[...].pluck() == [1, 2]
 
 
 @pytest.mark.skipif(backend != "jax", reason="jax backend needed")

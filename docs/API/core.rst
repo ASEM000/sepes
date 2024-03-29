@@ -16,7 +16,6 @@
         reduce,
         pluck,
 
-.. autoclass:: AtIndexer
 .. autofunction:: autoinit
 .. autofunction:: leafwise
 .. autofunction:: field

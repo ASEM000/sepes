@@ -35,6 +35,8 @@
 - Rename `is_frozen` to `is_masked`
   - frozen could mean non-trainable array, however the masking is not only for arrays but also for other types that will be hidden across jax transformations.
 
+- Rename `AtIndexer` to `at` for shorter syntax.
+
 ### Additions
 
 - Add `fill_value` in `at[...].get(fill_value=...)` to add default value for non

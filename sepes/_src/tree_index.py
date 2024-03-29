@@ -691,9 +691,6 @@ class at(Generic[T]):
 # pass through for boolean pytrees masks and tuple of keys
 at.key_dispatcher = ft.singledispatch(lambda x: x)
 at.def_key = at.key_dispatcher.register
-# backwards compatibility
-AtIndexer = at
-
 
 # key rules
 

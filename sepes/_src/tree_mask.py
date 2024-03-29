@@ -42,7 +42,7 @@ class _MaskedError(NamedTuple):
         )
 
 
-class _MaskBase(Static):
+class _MaskBase(Static[T]):
     # the objective of this class is to wrap a pytree node with a custom wrapper
     # that yields no leaves when flattened. This is useful to avoid updating
     # the node by effectivly *hiding it* from function transformations that operates

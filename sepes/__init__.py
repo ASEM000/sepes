@@ -20,7 +20,7 @@ from sepes._src.tree_mask import is_masked, tree_mask, tree_unmask
 from sepes._src.tree_pprint import tree_diagram, tree_repr, tree_str, tree_summary
 from sepes._src.tree_util import bcmap, leafwise, value_and_tree
 
-__all__ = (
+__all__ = [
     # module utils
     "TreeClass",
     # pprint utils
@@ -43,7 +43,7 @@ __all__ = (
     "leafwise",
     # backend utils
     "backend_context",
-)
+]
 
 __version__ = "0.12.0"
 

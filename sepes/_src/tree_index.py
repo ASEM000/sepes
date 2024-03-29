@@ -81,8 +81,7 @@ Indexing with {indexer} is not implemented, supported indexing types are:
 """
 
 _NO_LEAF_MATCH = """\
-No leaf match is found for where={where}. Available keys are {names}.
-No leaf match is found for where={where}. Available keys are {names}.
+No leaf match is found for where={where}, Available keys are {names}
 Check the following: 
   - If where is `str` then check if the key exists as a key or attribute.
   - If where is `int` then check if the index is in range.
@@ -170,8 +169,9 @@ def generate_path_mask(tree, where: tuple[BaseKey, ...], *, is_leaf=None):
 
     if not match:
         path_leaf, _ = treelib.path_flatten(tree, is_leaf=is_leaf)
+        path = "/".join(str(where_i.input) for where_i in where)
         names = "".join("\n  - " + treelib.keystr(path) for path, _ in path_leaf)
-        raise LookupError(_NO_LEAF_MATCH.format(where=where, names=names))
+        raise LookupError(_NO_LEAF_MATCH.format(where=path, names=names))
 
     return mask
 

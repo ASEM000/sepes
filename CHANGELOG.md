@@ -12,6 +12,7 @@
   5) `freeze`  -> Use `ft.partial(tree_mask, lambda _: True)` instead.
   6)  `unfreeze` -> Use `tree_unmask` instead.
   7) `is_nondiff`
+  8) `BaseKey`
 
 
 ### Changes

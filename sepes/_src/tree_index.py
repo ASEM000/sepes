@@ -274,8 +274,6 @@ def resolve_where(
 class at(Generic[T]):
     """Operate on a pytree at a given path using a path or mask in out-of-place manner.
 
-    Alias for :func:`.at`
-
     Args:
         tree: pytree to operate on.
         where: one of the following:
@@ -286,9 +284,6 @@ class at(Generic[T]):
             - a boolean mask of the same structure as the tree
             - ``re.Pattern`` to match a leaf level path with a regex pattern.
             - a tuple of the above to match multiple keys at the same level.
-
-    Note:
-        Alternatively, use ``at(tree)[where]`` to index a pytree.
 
     Example:
         >>> import jax

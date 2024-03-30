@@ -206,23 +206,23 @@ class TreeClass(metaclass=TreeClassMeta):
         if "__delattr__" in vars(klass):
             raise TypeError(f"Reserved method `__delattr__` defined in `{klass}`.")
         super().__init_subclass__(**k)
-        # register the class with the proper tree backend.
-        # the registration envolves defining two rules: how to flatten the nested
-        # structure of the class and how to unflatten the flattened structure.
-        # The flatten rule for `TreeClass` is equivalent to vars(self). and the
-        # unflatten rule is equivalent to `klass(**flat_tree)`. The flatten/unflatten
-        # rule is exactly same as the flatten rule for normal dictionaries.
+        # - register the class with the proper tree backend.
+        # - the registration envolves defining two rules: how to flatten the nested
+        #   structure of the class and how to unflatten the flattened structure.
+        #   The flatten rule for `TreeClass` is equivalent to vars(self). and the
+        #   unflatten rule is equivalent to `klass(**flat_tree)`. The flatten/unflatten
+        #   rule is exactly same as the flatten rule for normal dictionaries.
         treelib = sepes._src.backend.treelib
         treelib.register_treeclass(klass)
 
     def __setattr__(self, key: str, value: Any) -> None:
-        # implements the controlled mutability behavior.
-        # In essence, setattr is allowed to set attributes during initialization
-        # and during functional call using .at["method"](*, **) by marking the
-        # instnace as mutable. Otherwise, setattr is disallowed.
-        # recall that during the functional call using .at["method"](*, **)
-        # the tree is always copied and the copy is marked as mutable, thus
-        # setattr is allowed to set attributes on the copy not the original.
+        # - implements the controlled mutability behavior.
+        # - In essence, setattr is allowed to set attributes during initialization
+        #   and during functional call using `value_and_tree(method)(*, **)` by marking the
+        #   instnace as mutable. Otherwise, setattr is disallowed.
+        # - recall that during the functional call using `value_and_tree(method)(*, **)`
+        #   the tree is always copied and the copy is marked as mutable, thus
+        #   setattr is allowed to set attributes on the copy not the original.
         if id(self) not in _mutable_instance_registry:
             raise AttributeError(
                 f"Cannot set attribute {value=} to `{key=}`  "
@@ -232,13 +232,13 @@ class TreeClass(metaclass=TreeClassMeta):
         getattr(object, "__setattr__")(self, key, value)
 
     def __delattr__(self, key: str) -> None:
-        # same as __setattr__ but for delattr.
-        # both __setattr__ and __delattr__ are used to implement the
-        # controlled mutability behavior during initialization and
-        # during functional call using .at["method"](*, **).
-        # recall that during the functional call using .at["method"](*, **)
-        # the tree is always copied and the copy is marked as mutable, thus
-        # setattr is allowed to set attributes on the copy not the original.
+        # - same as __setattr__ but for delattr.
+        # - both __setattr__ and __delattr__ are used to implement the
+        # - controlled mutability behavior during initialization and
+        #   during functional call using `value_and_tree(method)(*, **)`.
+        # - recall that during the functional call using `value_and_tree(method)(*, **)`
+        #   the tree is always copied and the copy is marked as mutable, thus
+        #   setattr is allowed to set attributes on the copy not the original.
         if id(self) not in _mutable_instance_registry:
             raise AttributeError(
                 f"Cannot delete attribute `{key}` "

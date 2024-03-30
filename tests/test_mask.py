@@ -13,6 +13,8 @@
 # limitations under the License.
 
 import copy
+import functools as ft
+import os
 from typing import Any
 
 import pytest
@@ -20,17 +22,12 @@ import pytest
 from sepes._src.backend import backend, treelib
 from sepes._src.code_build import autoinit
 from sepes._src.tree_base import TreeClass
-from sepes._src.tree_mask import (
-    freeze,
-    is_frozen,
-    tree_mask,
-    tree_unmask,
-    unfreeze,
-)
-import os
+from sepes._src.tree_mask import is_masked, tree_mask, tree_unmask
 from sepes._src.tree_util import is_tree_equal, leafwise, tree_hash
 
 test_arraylib = os.environ.get("SEPES_TEST_ARRAYLIB", "numpy")
+freeze = ft.partial(tree_mask, cond=lambda _: True)
+unfreeze = ft.partial(tree_unmask, cond=lambda _: True)
 
 if test_arraylib == "jax":
     import jax.numpy as arraylib
@@ -54,14 +51,14 @@ def test_freeze_unfreeze():
     b = a.at[...].apply(freeze)
     c = (
         a.at["a"]
-        .apply(unfreeze, is_leaf=is_frozen)
+        .apply(unfreeze, is_leaf=is_masked)
         .at["b"]
-        .apply(unfreeze, is_leaf=is_frozen)
+        .apply(unfreeze, is_leaf=is_masked)
     )
 
-    assert treelib.tree_flatten(a)[0] == [1, 2]
-    assert treelib.tree_flatten(b)[0] == []
-    assert treelib.tree_flatten(c)[0] == [1, 2]
+    assert treelib.flatten(a)[0] == [1, 2]
+    assert treelib.flatten(b)[0] == []
+    assert treelib.flatten(c)[0] == [1, 2]
     assert unfreeze(freeze(1.0)) == 1.0
 
     @autoinit
@@ -80,17 +77,17 @@ def test_freeze_unfreeze():
         b: int
 
     a = A(1, 2)
-    b = treelib.tree_map(freeze, a)
+    b = treelib.map(freeze, a)
     c = (
         a.at["a"]
-        .apply(unfreeze, is_leaf=is_frozen)
+        .apply(unfreeze, is_leaf=is_masked)
         .at["b"]
-        .apply(unfreeze, is_leaf=is_frozen)
+        .apply(unfreeze, is_leaf=is_masked)
     )
 
-    assert treelib.tree_flatten(a)[0] == [1, 2]
-    assert treelib.tree_flatten(b)[0] == []
-    assert treelib.tree_flatten(c)[0] == [1, 2]
+    assert treelib.flatten(a)[0] == [1, 2]
+    assert treelib.flatten(b)[0] == []
+    assert treelib.flatten(c)[0] == [1, 2]
 
     @autoinit
     class L0(TreeClass):
@@ -104,11 +101,11 @@ def test_freeze_unfreeze():
     class L2(TreeClass):
         c: L1 = L1()
 
-    t = treelib.tree_map(freeze, L2())
+    t = treelib.map(freeze, L2())
 
-    assert treelib.tree_flatten(t)[0] == []
-    assert treelib.tree_flatten(t.c)[0] == []
-    assert treelib.tree_flatten(t.c.b)[0] == []
+    assert treelib.flatten(t)[0] == []
+    assert treelib.flatten(t.c)[0] == []
+    assert treelib.flatten(t.c.b)[0] == []
 
     class L1(TreeClass):
         def __init__(self):
@@ -118,9 +115,9 @@ def test_freeze_unfreeze():
         def __init__(self):
             self.c = L1()
 
-    t = treelib.tree_map(freeze, L2())
-    assert treelib.tree_flatten(t.c)[0] == []
-    assert treelib.tree_flatten(t.c.b)[0] == []
+    t = treelib.map(freeze, L2())
+    assert treelib.flatten(t.c)[0] == []
+    assert treelib.flatten(t.c.b)[0] == []
 
 
 def test_freeze_errors():
@@ -160,25 +157,25 @@ def test_freeze_with_ops():
         c: str = freeze("test")
 
     t = Test()
-    assert treelib.tree_flatten(t)[0] == [1]
+    assert treelib.flatten(t)[0] == [1]
 
     with pytest.raises(AttributeError):
-        treelib.tree_map(freeze, t).a = 1
+        treelib.map(freeze, t).a = 1
 
     with pytest.raises(AttributeError):
-        treelib.tree_map(unfreeze, t).a = 1
+        treelib.map(unfreeze, t).a = 1
 
     hash(t)
 
     t = Test()
-    treelib.tree_map(unfreeze, t, is_leaf=is_frozen)
-    treelib.tree_map(freeze, t)
+    treelib.map(unfreeze, t, is_leaf=is_masked)
+    treelib.map(freeze, t)
 
     @autoinit
     class Test(TreeClass):
         a: int
 
-    t = treelib.tree_map(freeze, (Test(100)))
+    t = treelib.map(freeze, (Test(100)))
 
     class Test(TreeClass):
         def __init__(self, x):
@@ -223,7 +220,7 @@ def test_freeze_mask():
 
     t = Test()
 
-    assert treelib.tree_flatten(treelib.tree_map(freeze, t))[0] == []
+    assert treelib.flatten(treelib.map(freeze, t))[0] == []
 
 
 def test_freeze_nondiff():
@@ -234,10 +231,10 @@ def test_freeze_nondiff():
 
     t = Test()
 
-    assert treelib.tree_flatten(t)[0] == ["a"]
-    assert treelib.tree_flatten(treelib.tree_map(freeze, t))[0] == []
-    assert treelib.tree_flatten(
-        (treelib.tree_map(freeze, t)).at["b"].apply(unfreeze, is_leaf=is_frozen)
+    assert treelib.flatten(t)[0] == ["a"]
+    assert treelib.flatten(treelib.map(freeze, t))[0] == []
+    assert treelib.flatten(
+        (treelib.map(freeze, t)).at["b"].apply(unfreeze, is_leaf=is_masked)
     )[0] == ["a"]
 
     @autoinit
@@ -246,11 +243,11 @@ def test_freeze_nondiff():
 
     t = T0()
 
-    assert treelib.tree_flatten(t)[0] == ["a"]
-    assert treelib.tree_flatten(treelib.tree_map(freeze, t))[0] == []
+    assert treelib.flatten(t)[0] == ["a"]
+    assert treelib.flatten(treelib.map(freeze, t))[0] == []
 
-    assert treelib.tree_flatten(t)[0] == ["a"]
-    assert treelib.tree_flatten(treelib.tree_map(freeze, t))[0] == []
+    assert treelib.flatten(t)[0] == ["a"]
+    assert treelib.flatten(treelib.map(freeze, t))[0] == []
 
 
 def test_freeze_nondiff_with_mask():
@@ -278,11 +275,11 @@ def test_freeze_nondiff_with_mask():
     t = t.at["d"]["d"]["a"].apply(freeze)
     t = t.at["d"]["d"]["b"].apply(freeze)
 
-    assert treelib.tree_flatten(t)[0] == [10, 20, 30, 1, 2, 3, 3]
+    assert treelib.flatten(t)[0] == [10, 20, 30, 1, 2, 3, 3]
 
 
 def test_non_dataclass_input_to_freeze():
-    assert treelib.tree_flatten(freeze(1))[0] == []
+    assert treelib.flatten(freeze(1))[0] == []
 
 
 def test_tree_mask():
@@ -299,18 +296,18 @@ def test_tree_mask():
 
     tree = L1()
 
-    assert treelib.tree_flatten(tree)[0] == [1, 2, 3]
-    assert treelib.tree_flatten(treelib.tree_map(freeze, tree))[0] == []
-    assert treelib.tree_flatten(treelib.tree_map(freeze, tree))[0] == []
-    assert treelib.tree_flatten(tree.at[...].apply(freeze))[0] == []
-    assert treelib.tree_flatten(tree.at[tree > 1].apply(freeze))[0] == [1]
-    assert treelib.tree_flatten(tree.at[tree == 1].apply(freeze))[0] == [2, 3]
-    assert treelib.tree_flatten(tree.at[tree < 1].apply(freeze))[0] == [1, 2, 3]
+    assert treelib.flatten(tree)[0] == [1, 2, 3]
+    assert treelib.flatten(treelib.map(freeze, tree))[0] == []
+    assert treelib.flatten(treelib.map(freeze, tree))[0] == []
+    assert treelib.flatten(tree.at[...].apply(freeze))[0] == []
+    assert treelib.flatten(tree.at[tree > 1].apply(freeze))[0] == [1]
+    assert treelib.flatten(tree.at[tree == 1].apply(freeze))[0] == [2, 3]
+    assert treelib.flatten(tree.at[tree < 1].apply(freeze))[0] == [1, 2, 3]
 
-    assert treelib.tree_flatten(tree.at["a"].apply(freeze))[0] == [2, 3]
-    assert treelib.tree_flatten(tree.at["b"].apply(freeze))[0] == [1]
-    assert treelib.tree_flatten(tree.at["b"]["x"].apply(freeze))[0] == [1, 3]
-    assert treelib.tree_flatten(tree.at["b"]["y"].apply(freeze))[0] == [1, 2]
+    assert treelib.flatten(tree.at["a"].apply(freeze))[0] == [2, 3]
+    assert treelib.flatten(tree.at["b"].apply(freeze))[0] == [1]
+    assert treelib.flatten(tree.at["b"]["x"].apply(freeze))[0] == [1, 3]
+    assert treelib.flatten(tree.at["b"]["y"].apply(freeze))[0] == [1, 2]
 
 
 def test_tree_unmask():
@@ -328,21 +325,21 @@ def test_tree_unmask():
     tree = L1()
 
     frozen_tree = tree.at[...].apply(freeze)
-    assert treelib.tree_flatten(frozen_tree)[0] == []
+    assert treelib.flatten(frozen_tree)[0] == []
 
     mask = tree == tree
-    unfrozen_tree = frozen_tree.at[mask].apply(unfreeze, is_leaf=is_frozen)
-    assert treelib.tree_flatten(unfrozen_tree)[0] == [1, 2, 3]
+    unfrozen_tree = frozen_tree.at[mask].apply(unfreeze, is_leaf=is_masked)
+    assert treelib.flatten(unfrozen_tree)[0] == [1, 2, 3]
 
     mask = tree > 1
-    unfrozen_tree = frozen_tree.at[mask].apply(unfreeze, is_leaf=is_frozen)
-    assert treelib.tree_flatten(unfrozen_tree)[0] == [2, 3]
+    unfrozen_tree = frozen_tree.at[mask].apply(unfreeze, is_leaf=is_masked)
+    assert treelib.flatten(unfrozen_tree)[0] == [2, 3]
 
-    unfrozen_tree = frozen_tree.at["a"].apply(unfreeze, is_leaf=is_frozen)
-    # assert treelib.tree_flatten(unfrozen_tree)[0] == [1]
+    unfrozen_tree = frozen_tree.at["a"].apply(unfreeze, is_leaf=is_masked)
+    # assert treelib.flatten(unfrozen_tree)[0] == [1]
 
-    # unfrozen_tree = frozen_tree.at["b"].apply(unfreeze, is_leaf=is_frozen)
-    # assert treelib.tree_flatten(unfrozen_tree)[0] == [2, 3]
+    # unfrozen_tree = frozen_tree.at["b"].apply(unfreeze, is_leaf=is_masked)
+    # assert treelib.flatten(unfrozen_tree)[0] == [2, 3]
 
 
 def test_tree_mask_unfreeze():
@@ -361,12 +358,12 @@ def test_tree_mask_unfreeze():
 
     mask = tree == tree
     frozen_tree = tree.at[...].apply(freeze)
-    unfrozen_tree = frozen_tree.at[mask].apply(unfreeze, is_leaf=is_frozen)
-    assert treelib.tree_flatten(unfrozen_tree)[0] == [1, 2, 3]
+    unfrozen_tree = frozen_tree.at[mask].apply(unfreeze, is_leaf=is_masked)
+    assert treelib.flatten(unfrozen_tree)[0] == [1, 2, 3]
 
     # frozen_tree = tree.at["a"].apply(freeze)
-    # unfrozen_tree = frozen_tree.at["a"].apply(unfreeze, is_leaf=is_frozen)
-    # assert treelib.tree_flatten(unfrozen_tree)[0] == [1, 2, 3]
+    # unfrozen_tree = frozen_tree.at["a"].apply(unfreeze, is_leaf=is_masked)
+    # assert treelib.flatten(unfrozen_tree)[0] == [1, 2, 3]
 
 
 def test_wrapper():
@@ -403,18 +400,16 @@ def test_wrapper():
 @pytest.mark.skipif(backend == "default", reason="no array backend installed")
 def test_tree_mask_tree_unmask():
     tree = [1, 2, 3.0]
-    assert treelib.tree_flatten(tree_mask(tree))[0] == [3.0]
-    assert treelib.tree_flatten(tree_unmask(tree_mask(tree)))[0] == [1, 2, 3.0]
+    assert treelib.flatten(tree_mask(tree))[0] == [3.0]
+    assert treelib.flatten(tree_unmask(tree_mask(tree)))[0] == [1, 2, 3.0]
 
     mask_func = lambda x: x < 2
-    assert treelib.tree_flatten(tree_mask(tree, mask_func))[0] == [2, 3.0]
+    assert treelib.flatten(tree_mask(tree, mask_func))[0] == [2, 3.0]
 
     assert freeze(freeze(1)) == freeze(1)
 
-    assert tree_mask({"a": 1}, mask={"a": True}) == {"a": freeze(1)}
-
-    with pytest.raises(ValueError):
-        tree_mask({"a": 1}, mask=1.0)
+    with pytest.raises(TypeError):
+        tree_mask({"a": 1}, cond=1.0)
 
     assert copy.copy(freeze(1)) == freeze(1)
 
@@ -424,7 +419,7 @@ def test_tree_mask_tree_unmask():
 
 @pytest.mark.skipif(backend == "default", reason="no array backend installed")
 def test_array_tree_mask_tree_unmask():
-    frozen_array = tree_mask(arraylib.ones((5, 5)), mask=lambda _: True)
+    frozen_array = tree_mask(arraylib.ones((5, 5)), cond=lambda _: True)
 
     assert frozen_array == frozen_array
     assert not (frozen_array == freeze(arraylib.ones((5, 6))))

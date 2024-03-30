@@ -17,6 +17,7 @@ from __future__ import annotations
 import numpy as np
 import torch
 from torch import Tensor
+
 import sepes._src.backend.arraylib as arraylib
 
 floatings = [torch.float16, torch.float32, torch.float64]
@@ -33,8 +34,9 @@ arraylib.max.register(Tensor, torch.max)
 arraylib.mean.register(Tensor, torch.mean)
 arraylib.std.register(Tensor, torch.std)
 arraylib.all.register(Tensor, torch.all)
+arraylib.array_equal.register(Tensor, torch.equal)
 arraylib.is_floating.register(Tensor, lambda x: x.dtype in floatings)
 arraylib.is_integer.register(Tensor, lambda x: x.dtype in integers)
 arraylib.is_inexact.register(Tensor, lambda x: x.dtype in floatings + complexes)
 arraylib.is_bool.register(Tensor, lambda x: x.dtype == torch.bool)
-arraylib.ndarrays += (Tensor,)
+arraylib.ndarrays.append(Tensor)

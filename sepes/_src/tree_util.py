@@ -16,15 +16,17 @@
 
 from __future__ import annotations
 
+import copy
 import functools as ft
 import operator as op
-import copy
 from math import ceil, floor, trunc
-from typing import Any, Callable, Hashable, Iterator, Sequence, Tuple, TypeVar, Generic
+from typing import Any, Callable, Generic, Hashable, Iterator, Sequence, Tuple, TypeVar
+
+from typing_extensions import ParamSpec
+
+import sepes
 import sepes._src.backend.arraylib as arraylib
 from sepes._src.backend import is_package_avaiable
-from typing_extensions import ParamSpec
-import sepes
 
 T = TypeVar("T")
 T1 = TypeVar("T1")
@@ -42,7 +44,7 @@ KeyTypePath = Tuple[KeyPath, TypePath]
 
 def tree_hash(*trees: PyTree) -> int:
     treelib = sepes._src.backend.treelib
-    leaves, treedef = treelib.tree_flatten(trees)
+    leaves, treedef = treelib.flatten(trees)
     return hash((*leaves, treedef))
 
 
@@ -57,7 +59,7 @@ def tree_copy(tree: T) -> T:
     def is_leaf(node) -> bool:
         return isinstance(node, types)
 
-    return treelib.tree_map(tree_copy.copy_dispatcher, tree, is_leaf=is_leaf)
+    return treelib.map(tree_copy.copy_dispatcher, tree, is_leaf=is_leaf)
 
 
 # default behavior is to copy the tree elements except for registered types
@@ -66,18 +68,31 @@ tree_copy.copy_dispatcher = ft.singledispatch(copy.copy)
 tree_copy.def_type = tree_copy.copy_dispatcher.register
 
 
+@tree_copy.def_type(int)
+@tree_copy.def_type(float)
+@tree_copy.def_type(complex)
+@tree_copy.def_type(str)
+@tree_copy.def_type(bytes)
+def _(x: T) -> T:
+    # skip applying `copy.copy` on immutable atom types
+    return x
+
+
 def is_array_like(node) -> bool:
     return hasattr(node, "shape") and hasattr(node, "dtype")
 
 
-def _is_leaf_rhs_equal(leaf, rhs) -> bool:
+def _is_leaf_rhs_equal(leaf, rhs):
     if is_array_like(leaf):
         if is_array_like(rhs):
             if leaf.shape != rhs.shape:
                 return False
             if leaf.dtype != rhs.dtype:
                 return False
-            verdict = arraylib.all(leaf == rhs)
+            try:
+                verdict = arraylib.all(leaf == rhs)
+            except NotImplementedError:
+                verdict = leaf == rhs
             try:
                 return bool(verdict)
             except Exception:
@@ -94,11 +109,11 @@ def is_tree_equal(*trees: Any) -> bool:
     """
     treelib = sepes._src.backend.treelib
     tree0, *rest = trees
-    leaves0, treedef0 = treelib.tree_flatten(tree0)
+    leaves0, treedef0 = treelib.flatten(tree0)
     verdict = True
 
     for tree in rest:
-        leaves, treedef = treelib.tree_flatten(tree)
+        leaves, treedef = treelib.flatten(tree)
         if (treedef != treedef0) or verdict is False:
             return False
         verdict = ft.reduce(op.and_, map(_is_leaf_rhs_equal, leaves0, leaves), verdict)
@@ -116,73 +131,28 @@ class Static(Generic[T]):
         treelib.register_static(klass)
 
 
-class Partial(Static):
-    """``Partial`` function with support for positional partial application.
-
-    Args:
-        func: The function to be partially applied.
-        args: Positional arguments to be partially applied. use ``...`` as a
-            placeholder for positional arguments.
-        kwargs: Keyword arguments to be partially applied.
-
-    Example:
-        >>> import sepes as sp
-        >>> def f(a, b, c):
-        ...     print(f"a: {a}, b: {b}, c: {c}")
-        ...     return a + b + c
-
-        >>> # positional arguments using `...` placeholder
-        >>> f_a = sp.Partial(f, ..., 2, 3)
-        >>> f_a(1)
-        a: 1, b: 2, c: 3
-        6
-
-        >>> # keyword arguments
-        >>> f_b = sp.Partial(f, b=2, c=3)
-        >>> f_a(1)
-        a: 1, b: 2, c: 3
-        6
-
-    Note:
-        - The ``...`` is used to indicate a placeholder for positional arguments.
-        - https://stackoverflow.com/a/7811270
-    """
-
-    __slots__ = ["func", "args", "keywords"]  # type: ignore
-
-    def __init__(self, func: Callable[..., Any], *args: Any, **kwargs: Any):
-        self.func = func
-        self.args = args
-        self.keywords = kwargs
-
+class partial(ft.partial):
     def __call__(self, *args: Any, **kwargs: Any) -> Any:
         iargs = iter(args)
         args = (next(iargs) if arg is ... else arg for arg in self.args)  # type: ignore
         return self.func(*args, *iargs, **{**self.keywords, **kwargs})
 
-    def __repr__(self) -> str:
-        return f"Partial({self.func}, {self.args}, {self.keywords})"
-
-    def __hash__(self) -> int:
-        return tree_hash(self)
-
-    def __eq__(self, other: Any) -> bool:
-        return is_tree_equal(self, other)
-
-
-# to match python
-partial = Partial
-
 
 def bcmap(
     func: Callable[P, T],
+    broadcast_to: int | str | None = None,
     *,
     is_leaf: Callable[[Any], bool] | None = None,
 ) -> Callable[P, T]:
     """Map a function over pytree leaves with automatic broadcasting for scalar arguments.
 
     Args:
-        func: the function to be mapped over the pytree
+        func: the function to be mapped over the pytree.
+        broadcast_to: Accepts integer for broadcasting to a specific argument
+            or string for broadcasting to a specific keyword argument.
+            If ``None``, then the function is broadcasted to the first argument
+            or the first keyword argument if no positional arguments are provided.
+            Defaults to ``None``.
         is_leaf: a predicate function that returns True if the node is a leaf.
 
     Example:
@@ -199,7 +169,6 @@ def bcmap(
         >>> print(sp.tree_str(tree_add(tree_of_arrays, 1)))
         dict(a=[2 3 4], b=[5 6 7])
     """
-    # add broadcasting argnum/argname to the function later
     treelib = sepes._src.backend.treelib
 
     @ft.wraps(func)
@@ -209,23 +178,29 @@ def bcmap(
         leaves = []
         kwargs_keys: list[str] = []
 
+        bdcst_to = (
+            (0 if len(args) else next(iter(kwargs)))
+            if broadcast_to is None
+            else broadcast_to
+        )
+
         treedef0 = (
             # reference treedef is the first positional argument
-            treelib.tree_flatten(args[0], is_leaf=is_leaf)[1]
+            treelib.flatten(args[bdcst_to], is_leaf=is_leaf)[1]
             if len(args)
             # reference treedef is the first keyword argument
-            else treelib.tree_flatten(kwargs[next(iter(kwargs))], is_leaf=is_leaf)[1]
+            else treelib.flatten(kwargs[bdcst_to], is_leaf=is_leaf)[1]
         )
 
         for arg in args:
-            if treedef0 == treelib.tree_flatten(arg, is_leaf=is_leaf)[1]:
+            if treedef0 == treelib.flatten(arg, is_leaf=is_leaf)[1]:
                 cargs += [...]
                 leaves += [treedef0.flatten_up_to(arg)]
             else:
                 cargs += [arg]
 
         for key in kwargs:
-            if treedef0 == treelib.tree_flatten(kwargs[key], is_leaf=is_leaf)[1]:
+            if treedef0 == treelib.flatten(kwargs[key], is_leaf=is_leaf)[1]:
                 ckwargs[key] = ...
                 leaves += [treedef0.flatten_up_to(kwargs[key])]
                 kwargs_keys += [key]
@@ -239,7 +214,7 @@ def bcmap(
             args = args_kwargs_values[:split_index]
             kwargs = dict(zip(kwargs_keys, args_kwargs_values[split_index:]))
             all_leaves += [bfunc(*args, **kwargs)]
-        return treelib.tree_unflatten(treedef0, all_leaves)
+        return treelib.unflatten(treedef0, all_leaves)
 
     return wrapper
 
@@ -266,7 +241,8 @@ def leafwise(klass: type[T]) -> type[T]:
         The decorated class.
 
     Example:
-        >>> # use ``numpy`` functions on :class:`TreeClass`` classes decorated with ``leafwise``
+        Use ``numpy`` functions on :class:`TreeClass`` classes decorated with :func:`leafwise`
+
         >>> import sepes as sp
         >>> import jax.numpy as jnp
         >>> @sp.leafwise
@@ -321,15 +297,15 @@ def leafwise(klass: type[T]) -> type[T]:
 
     def uop(func):
         def wrapper(self):
-            return treelib.tree_map(func, self)
+            return treelib.map(func, self)
 
         return ft.wraps(func)(wrapper)
 
     def bop(func):
         def wrapper(leaf, rhs=None):
             if isinstance(rhs, type(leaf)):
-                return treelib.tree_map(func, leaf, rhs)
-            return treelib.tree_map(lambda x: func(x, rhs), leaf)
+                return treelib.map(func, leaf, rhs)
+            return treelib.map(lambda x: func(x, rhs), leaf)
 
         return ft.wraps(func)(wrapper)
 
@@ -391,7 +367,7 @@ def tree_type_path_leaves(
     is_path_leaf: Callable[[KeyTypePath], bool] | None = None,
 ) -> Sequence[tuple[KeyTypePath, Any]]:
     treelib = sepes._src.backend.treelib
-    _, atomicdef = treelib.tree_flatten(1)
+    _, atomicdef = treelib.flatten(1)
 
     # mainly used for visualization
     def flatten_one_level(type_path: KeyTypePath, tree: PyTree):
@@ -407,7 +383,7 @@ def tree_type_path_leaves(
                 return False
             return True
 
-        path_leaf, treedef = treelib.tree_path_flatten(tree, is_leaf=one_level_is_leaf)
+        path_leaf, treedef = treelib.path_flatten(tree, is_leaf=one_level_is_leaf)
 
         if treedef == atomicdef:
             yield type_path, tree
@@ -501,7 +477,7 @@ def construct_tree(
     return root
 
 
-def value_and_tree(func, argnums: int | Sequence[int] = 0):
+def value_and_tree(func: Callable[..., T], argnums: int | Sequence[int] = 0):
     """Call a function on copied input argument and return the value and the tree.
 
     Input arguments are copied before calling the function, and the argument
@@ -614,15 +590,15 @@ def value_and_tree(func, argnums: int | Sequence[int] = 0):
         return False
 
     @ft.wraps(func)
-    def stateless_func(*args, **kwargs) -> tuple[Any, PyTree | tuple[PyTree, ...]]:
+    def stateless_func(*args, **kwargs) -> tuple[T, PyTree | tuple[PyTree, ...]]:
         # copy the incoming inputs
         (args, kwargs) = tree_copy((args, kwargs))
         # and edit the node/record to make it mutable (if there is a rule for it)
-        treelib.tree_map(lambda _: _, (args, kwargs), is_leaf=mutate_is_leaf)
+        treelib.map(lambda _: _, (args, kwargs), is_leaf=mutate_is_leaf)
         output = func(*args, **kwargs)
         # traverse each node in the tree depth-first manner
         # to undo the mutation (if there is a rule for it)
-        treelib.tree_map(lambda _: _, (args, kwargs), is_leaf=immutate_is_leaf)
+        treelib.map(lambda _: _, (args, kwargs), is_leaf=immutate_is_leaf)
         out_args = tuple(a for i, a in enumerate(args) if i in argnums)
         out_args = out_args[0] if is_int_argnum else out_args
         return output, out_args

@@ -14,20 +14,32 @@
 """Backend tools for sepes."""
 
 from __future__ import annotations
-import functools as ft
 
-tobytes = ft.singledispatch(lambda array: ...)
-where = ft.singledispatch(lambda condition, x, y: ...)
-nbytes = ft.singledispatch(lambda array: ...)
-shape = ft.singledispatch(lambda array: ...)
-dtype = ft.singledispatch(lambda array: ...)
-min = ft.singledispatch(lambda array: ...)
-max = ft.singledispatch(lambda array: ...)
-mean = ft.singledispatch(lambda array: ...)
-std = ft.singledispatch(lambda array: ...)
-all = ft.singledispatch(lambda array: ...)
-is_floating = ft.singledispatch(lambda array: ...)
-is_integer = ft.singledispatch(lambda array: ...)
-is_inexact = ft.singledispatch(lambda array: ...)
-is_bool = ft.singledispatch(lambda array: ...)
-ndarrays: tuple[type, ...] = ()
+import functools as ft
+from typing import Callable, NamedTuple
+
+
+class NoImplError(NamedTuple):
+    op: Callable
+
+    def __call__(self, *args, **kwargs):
+        raise NotImplementedError(f"No implementation for {self.op}"
+                                  f" with {args=} {kwargs=}")
+
+
+tobytes = ft.singledispatch(NoImplError("tobytes"))
+where = ft.singledispatch(NoImplError("where"))
+nbytes = ft.singledispatch(NoImplError("nbytes"))
+shape = ft.singledispatch(NoImplError("shape"))
+dtype = ft.singledispatch(NoImplError("dtype"))
+min = ft.singledispatch(NoImplError("min"))
+max = ft.singledispatch(NoImplError("max"))
+mean = ft.singledispatch(NoImplError("mean"))
+std = ft.singledispatch(NoImplError("std"))
+all = ft.singledispatch(NoImplError("all"))
+array_equal = ft.singledispatch(NoImplError("array_equal"))
+is_floating = ft.singledispatch(NoImplError("is_floating"))
+is_integer = ft.singledispatch(NoImplError("is_integer"))
+is_inexact = ft.singledispatch(NoImplError("is_inexact"))
+is_bool = ft.singledispatch(NoImplError("is_bool"))
+ndarrays: list[type] = []

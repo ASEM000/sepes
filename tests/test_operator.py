@@ -15,6 +15,7 @@
 from __future__ import annotations
 
 import math
+import os
 from typing import Any
 
 import pytest
@@ -22,9 +23,10 @@ import pytest
 from sepes._src.backend import backend
 from sepes._src.code_build import autoinit, field
 from sepes._src.tree_base import TreeClass
-from sepes._src.tree_mask import freeze
+from sepes._src.tree_mask import tree_mask
 from sepes._src.tree_util import bcmap, is_tree_equal, leafwise
-import os
+
+freeze = lambda x: tree_mask(x, cond=lambda _: True)
 
 test_arraylib = os.environ.get("SEPES_TEST_ARRAYLIB", "numpy")
 if test_arraylib == "jax":
@@ -171,3 +173,17 @@ def test_bcmap(tree, expected):
 def test_math_operations_errors():
     with pytest.raises(TypeError):
         tree1 + "s"
+
+
+def test_bcmap_int_argnum_broadcast_to():
+    def func(x, y):
+        return x + y
+
+    assert bcmap(func, broadcast_to=1)(1, [2, 3, 4]) == [3, 4, 5]
+
+
+def test_bcmap_key_argnum_broadcast_to():
+    def func(x, y):
+        return x + y
+
+    assert bcmap(func, broadcast_to="y")(x=1, y=[2, 3, 4]) == [3, 4, 5]

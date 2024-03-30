@@ -19,14 +19,13 @@ from __future__ import annotations
 import abc
 from typing import Any, Hashable, TypeVar
 
-from typing_extensions import Unpack
+from typing_extensions import Self, Unpack
 
 import sepes
 from sepes._src.code_build import fields
+from sepes._src.tree_index import at
 from sepes._src.tree_pprint import PPSpec, tree_repr, tree_str
 from sepes._src.tree_util import is_tree_equal, tree_copy, tree_hash, value_and_tree
-from typing_extensions import Self
-from sepes._src.tree_index import AtIndexer
 
 T = TypeVar("T", bound=Hashable)
 S = TypeVar("S")
@@ -148,11 +147,11 @@ class TreeClass(metaclass=TreeClassMeta):
         the tree. for example:
 
         >>> @sp.leafwise
-        ... @sp.autoinit
         ... class Tree(sp.TreeClass):
-        ...     a:int = 1
-        ...     b:float = 2.0
-        >>> tree = Tree()
+        ...     def __init__(self, a:int, b:float):
+        ...         self.a = a
+        ...         self.b = b
+        >>> tree = Tree(a=1, b=2.0)
         >>> tree + 1  # will add 1 to each leaf
         Tree(a=2, b=3.0)
 
@@ -161,44 +160,15 @@ class TreeClass(metaclass=TreeClassMeta):
         used to ``get``, ``set``, or ``apply`` a function to a leaf or a group of
         leaves using ``leaf`` name, index or by a boolean mask.
 
-        >>> @sp.autoinit
-        ... class Tree(sp.TreeClass):
-        ...     a:int = 1
-        ...     b:float = 2.0
-        >>> tree = Tree()
+        >>> class Tree(sp.TreeClass):
+        ...     def __init__(self, a:int, b:float):
+        ...         self.a = a
+        ...         self.b = b
+        >>> tree = Tree(a=1, b=2.0)
         >>> tree.at["a"].get()
         Tree(a=1, b=None)
         >>> tree.at[0].get()
         Tree(a=1, b=None)
-
-    Note:
-        - Under ``jax.tree_util.***`` or ``optree`` all :class:`.TreeClass`
-          attributes are treated as leaves.
-        - To hide/ignore a specific attribute from the tree leaves, during
-          ``jax.tree_util.***`` operations, freeze the leaf using :func:`.freeze`
-          or :func:`.tree_mask`.
-
-        >>> # freeze(exclude) a leaf from the tree leaves:
-        >>> import jax
-        >>> import sepes as sp
-        >>> @sp.autoinit
-        ... class Tree(sp.TreeClass):
-        ...     a:int = 1
-        ...     b:float = 2.0
-        >>> tree = Tree()
-        >>> tree = tree.at["a"].apply(sp.freeze)
-        >>> jax.tree_util.tree_leaves(tree)
-        [2.0]
-
-        >>> # undo the freeze
-        >>> tree = tree.at["a"].apply(sp.unfreeze, is_leaf=sp.is_frozen)
-        >>> jax.tree_util.tree_leaves(tree)
-        [1, 2.0]
-
-        >>> # using `tree_mask` to exclude a leaf from the tree leaves
-        >>> freeze_mask = Tree(a=True, b=False)
-        >>> jax.tree_util.tree_leaves(sp.tree_mask(tree, freeze_mask))
-        [2.0]
 
     Note:
         ``AttributeError`` is raised, If a method that mutates the instance
@@ -236,23 +206,23 @@ class TreeClass(metaclass=TreeClassMeta):
         if "__delattr__" in vars(klass):
             raise TypeError(f"Reserved method `__delattr__` defined in `{klass}`.")
         super().__init_subclass__(**k)
-        # register the class with the proper tree backend.
-        # the registration envolves defining two rules: how to flatten the nested
-        # structure of the class and how to unflatten the flattened structure.
-        # The flatten rule for `TreeClass` is equivalent to vars(self). and the
-        # unflatten rule is equivalent to `klass(**flat_tree)`. The flatten/unflatten
-        # rule is exactly same as the flatten rule for normal dictionaries.
+        # - register the class with the proper tree backend.
+        # - the registration envolves defining two rules: how to flatten the nested
+        #   structure of the class and how to unflatten the flattened structure.
+        #   The flatten rule for `TreeClass` is equivalent to vars(self). and the
+        #   unflatten rule is equivalent to `klass(**flat_tree)`. The flatten/unflatten
+        #   rule is exactly same as the flatten rule for normal dictionaries.
         treelib = sepes._src.backend.treelib
         treelib.register_treeclass(klass)
 
     def __setattr__(self, key: str, value: Any) -> None:
-        # implements the controlled mutability behavior.
-        # In essence, setattr is allowed to set attributes during initialization
-        # and during functional call using .at["method"](*, **) by marking the
-        # instnace as mutable. Otherwise, setattr is disallowed.
-        # recall that during the functional call using .at["method"](*, **)
-        # the tree is always copied and the copy is marked as mutable, thus
-        # setattr is allowed to set attributes on the copy not the original.
+        # - implements the controlled mutability behavior.
+        # - In essence, setattr is allowed to set attributes during initialization
+        #   and during functional call using `value_and_tree(method)(*, **)` by marking the
+        #   instnace as mutable. Otherwise, setattr is disallowed.
+        # - recall that during the functional call using `value_and_tree(method)(*, **)`
+        #   the tree is always copied and the copy is marked as mutable, thus
+        #   setattr is allowed to set attributes on the copy not the original.
         if id(self) not in _mutable_instance_registry:
             raise AttributeError(
                 f"Cannot set attribute {value=} to `{key=}`  "
@@ -262,13 +232,13 @@ class TreeClass(metaclass=TreeClassMeta):
         getattr(object, "__setattr__")(self, key, value)
 
     def __delattr__(self, key: str) -> None:
-        # same as __setattr__ but for delattr.
-        # both __setattr__ and __delattr__ are used to implement the
-        # controlled mutability behavior during initialization and
-        # during functional call using .at["method"](*, **).
-        # recall that during the functional call using .at["method"](*, **)
-        # the tree is always copied and the copy is marked as mutable, thus
-        # setattr is allowed to set attributes on the copy not the original.
+        # - same as __setattr__ but for delattr.
+        # - both __setattr__ and __delattr__ are used to implement the
+        # - controlled mutability behavior during initialization and
+        #   during functional call using `value_and_tree(method)(*, **)`.
+        # - recall that during the functional call using `value_and_tree(method)(*, **)`
+        #   the tree is always copied and the copy is marked as mutable, thus
+        #   setattr is allowed to set attributes on the copy not the original.
         if id(self) not in _mutable_instance_registry:
             raise AttributeError(
                 f"Cannot delete attribute `{key}` "
@@ -277,7 +247,7 @@ class TreeClass(metaclass=TreeClassMeta):
         getattr(object, "__delattr__")(self, key)
 
     @property
-    def at(self) -> AtIndexer[Self]:
+    def at(self) -> at[Self]:
         """Immutable out-of-place indexing.
 
         - ``.at[***].get()``:
@@ -292,20 +262,18 @@ class TreeClass(metaclass=TreeClassMeta):
             - ``int`` for positional indexing for sequences.
             - ``...`` to select all leaves.
             - a boolean mask of the same structure as the tree
-            - ``re.Pattern`` to index all keys matching a regex pattern.
-            - an instance of ``BaseKey`` with custom logic to index a pytree.
             - a tuple of the above types to index multiple keys at same level.
 
         Example:
             >>> import sepes as sp
-            >>> @sp.autoinit
-            ... class Tree(sp.TreeClass):
-            ...    a: int = 1
-            ...    b: float = 2.0
+            >>> class Tree(sp.TreeClass):
+            ...    def __init__(self, a:int, b:float):
+            ...        self.a = a
+            ...        self.b = b
             ...    def add(self, x: int) -> int:
             ...        self.a += x
             ...        return self.a
-            >>> tree = Tree()
+            >>> tree = Tree(a=1, b=2.0)
             >>> tree.at["a"].get()
             Tree(a=1, b=None)
             >>> tree.at["a"].set(100)
@@ -317,7 +285,10 @@ class TreeClass(metaclass=TreeClassMeta):
             - ``pytree.at[*][**]`` is equivalent to selecting pytree.*.** .
             - ``pytree.at[*, **]`` is equivalent selecting pytree.* and pytree.**
         """
-        return AtIndexer(self)
+        # NOTE: use `at` as a property to enable chaining syntax.
+        # instead of at(at(tree)[...].apply(...))[...].set(...)
+        # chaining syntax is tree.at[...].apply(...).at[...].set(...)
+        return at(self)
 
     def __repr__(self) -> str:
         return tree_repr(self)

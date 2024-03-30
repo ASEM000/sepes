@@ -31,7 +31,6 @@ import sepes._src.backend.arraylib as arraylib
 from sepes._src.backend import is_package_avaiable
 from sepes._src.tree_util import (
     Node,
-    Partial,
     construct_tree,
     is_path_leaf_depth_factory,
     tree_type_path_leaves,
@@ -178,13 +177,12 @@ def _(func: Callable, **spec: Unpack[PPSpec]) -> str:
     return f"{name}({', '.join(header)})"
 
 
-@tree_str.def_type(Partial)
 @tree_str.def_type(ft.partial)
 def _(node: ft.partial, **spec: Unpack[PPSpec]) -> str:
     func = tree_str.pp(node.func, **spec)
     args = tree_str.pps(tree_str.pp, node.args, **spec)
     keywords = tree_str.pps(tree_str.kv_pp, node.keywords, **spec)
-    return f"Partial(" + ",".join([func, args, keywords]) + ")"
+    return "partial(" + ",".join([func, args, keywords]) + ")"
 
 
 @tree_str.def_type(list)
@@ -242,7 +240,6 @@ for ndarray in arraylib.ndarrays:
         return f"{base}(μ={mean}, σ={std}, ∈{interval})"
 
 
-@tree_repr.def_type(Partial)
 @tree_repr.def_type(ft.partial)
 def _(node: ft.partial, **spec: Unpack[PPSpec]) -> str:
     func = tree_repr.pp(node.func, **spec)
@@ -363,139 +360,6 @@ def tree_diagram(
     return (text if tabwidth is None else text.expandtabs(tabwidth)).rstrip()
 
 
-def tree_mermaid(
-    tree: PyTree,
-    depth: int | float = float("inf"),
-    is_leaf: Callable[[Any], None] | None = None,
-    tabwidth: int | None = 4,
-) -> str:
-    """Generate a mermaid diagram syntax for arbitrary pytrees.
-
-    Args:
-        tree: PyTree
-        depth: depth of the tree to print. default is max depth
-        is_leaf: function to determine if a node is a leaf. default is None
-        tabwidth: tab width of the repr string. default is 4.
-
-    Example:
-        >>> import sepes as sp
-        >>> tree = [1, 2, dict(a=3)]
-        >>> # as rendered by mermaid
-        >>> print(sp.tree_mermaid(tree))  # doctest: +SKIP
-
-        .. image:: ../_static/tree_mermaid.jpg
-            :width: 300px
-            :align: center
-
-    Note:
-        - Copy the output and paste it in the mermaid live editor to interact with
-          the diagram. https://mermaid.live
-    """
-
-    def step(node: Node, depth: int = 0) -> str:
-        if len(node.children) == 0:
-            (key, _), value = node.data
-            ppstr = f"{key}=" if key is not None else ""
-            ppstr += tree_repr(value, depth=0)
-            ppstr = "<b>" + ppstr + "</b>"
-            return f'\tid{id(node.parent)} --- id{id(node)}("{ppstr}")\n'
-
-        (key, type), _ = node.data
-        ppstr = f"{key}:" if key is not None else ""
-        ppstr += f"{type.__name__}"
-        ppstr = "<b>" + ppstr + "</b>"
-
-        if node.parent is None:
-            text = f'\tid{id(node)}("{ppstr}")\n'
-        else:
-            text = f'\tid{id(node.parent)} --- id{id(node)}("{ppstr}")\n'
-
-        for child in node.children.values():
-            text += step(child, depth=depth + 1)
-        return text
-
-    is_path_leaf = is_path_leaf_depth_factory(depth)
-    root = construct_tree(tree, is_leaf=is_leaf, is_path_leaf=is_path_leaf)
-    text = "flowchart LR\n" + step(root)
-    return (text.expandtabs(tabwidth) if tabwidth is not None else text).rstrip()
-
-
-# dispatcher for dot nodestyles
-dot_dispatcher = ft.singledispatch(lambda _: dict(shape="box"))
-
-
-def tree_graph(
-    tree: PyTree,
-    depth: int | float = float("inf"),
-    is_leaf: Callable[[Any], None] | None = None,
-    tabwidth: int | None = 4,
-) -> str:
-    """Generate a dot diagram syntax for arbitrary pytrees.
-
-    Args:
-        tree: pytree
-        depth: depth of the tree to print. default is max depth
-        is_leaf: function to determine if a node is a leaf. default is None
-        tabwidth: tab width of the repr string. default is 4.
-
-    Returns:
-        str: dot diagram syntax
-
-    Example:
-        >>> import sepes as sp
-        >>> tree = [1, 2, dict(a=3)]
-        >>> # as rendered by graphviz
-
-        .. image:: ../_static/tree_graph.svg
-
-    Example:
-        >>> # define custom style for a node by dispatching on the value
-        >>> # the defined function should return a dict of attributes
-        >>> # that will be passed to graphviz.
-        >>> import sepes as sp
-        >>> tree = [1, 2, dict(a=3)]
-        >>> @sp.tree_graph.def_nodestyle(list)
-        ... def _(_) -> dict[str, str]:
-        ...     return dict(shape="circle", style="filled", fillcolor="lightblue")
-
-        .. image:: ../_static/tree_graph_stylized.svg
-    """
-
-    def step(node: Node, depth: int = 0) -> str:
-        (key, type), value = node.data
-
-        # dispatch node style
-        style = ", ".join(f"{k}={v}" for k, v in dot_dispatcher(value).items())
-
-        if len(node.children) == 0:
-            ppstr = f"{key}=" if key is not None else ""
-            ppstr += tree_repr(value, depth=0)
-            text = f'\t{id(node)} [label="{ppstr}", {style}];\n'
-            text += f"\t{id(node.parent)} -> {id(node)};\n"
-            return text
-
-        ppstr = f"{key}:" if key is not None else ""
-        ppstr += f"{type.__name__}"
-
-        if node.parent is None:
-            text = f'\t{id(node)} [label="{ppstr}", {style}];\n'
-        else:
-            text = f'\t{id(node)} [label="{ppstr}", {style}];\n'
-            text += f"\t{id(node.parent)} -> {id(node)};\n"
-
-        for child in node.children.values():
-            text += step(child, depth=depth + 1)
-        return text
-
-    is_path_leaf = is_path_leaf_depth_factory(depth)
-    root = construct_tree(tree, is_leaf=is_leaf, is_path_leaf=is_path_leaf)
-    text = "digraph G {\n" + step(root) + "}"
-    return (text.expandtabs(tabwidth) if tabwidth is not None else text).rstrip()
-
-
-tree_graph.def_nodestyle = dot_dispatcher.register
-
-
 def format_width(string, width=60):
     """Strip newline/tab characters if less than max width."""
     children_length = len(string) - string.count("\n") - string.count("\t")
@@ -570,39 +434,19 @@ def tree_summary(
         >>> import sepes as sp
         >>> import jax.numpy as jnp
         >>> print(sp.tree_summary([1, [2, [3]], jnp.array([1, 2, 3])]))
-        ┌─────────┬──────┬─────┬──────┐
-        │Name     │Type  │Count│Size  │
-        ├─────────┼──────┼─────┼──────┤
-        │[0]      │int   │1    │      │
-        ├─────────┼──────┼─────┼──────┤
-        │[1][0]   │int   │1    │      │
-        ├─────────┼──────┼─────┼──────┤
-        │[1][1][0]│int   │1    │      │
-        ├─────────┼──────┼─────┼──────┤
-        │[2]      │i32[3]│3    │12.00B│
-        ├─────────┼──────┼─────┼──────┤
-        │Σ        │list  │6    │12.00B│
-        └─────────┴──────┴─────┴──────┘
-
-    Example:
-        Set custom type display for ``jax`` jaxprs
-
-        >>> import jax
-        >>> import sepes as sp
-        >>> ClosedJaxprType = type(jax.make_jaxpr(lambda x: x)(1))
-        >>> @sp.tree_summary.def_type(ClosedJaxprType)
-        ... def _(expr: ClosedJaxprType) -> str:
-        ...     jaxpr = expr.jaxpr
-        ...     return f"Jaxpr({jaxpr.invars}, {jaxpr.outvars})"
-        >>> def func(x, y):
-        ...     return x
-        >>> jaxpr = jax.make_jaxpr(func)(1, 2)
-        >>> print(sp.tree_summary(jaxpr))
-        ┌────┬──────────────────┬─────┬────┐
-        │Name│Type              │Count│Size│
-        ├────┼──────────────────┼─────┼────┤
-        │Σ   │Jaxpr([a, b], [a])│1    │    │
-        └────┴──────────────────┴─────┴────┘
+        ┌─────────┬────────────────────────────────────┬─────┬──────┐
+        │Name     │Type                                │Count│Size  │
+        ├─────────┼────────────────────────────────────┼─────┼──────┤
+        │[0]      │int                                 │1    │      │
+        ├─────────┼────────────────────────────────────┼─────┼──────┤
+        │[1][0]   │int                                 │1    │      │
+        ├─────────┼────────────────────────────────────┼─────┼──────┤
+        │[1][1][0]│int                                 │1    │      │
+        ├─────────┼────────────────────────────────────┼─────┼──────┤
+        │[2]      │i32[3]                              │3    │12.00B│
+        ├─────────┼────────────────────────────────────┼─────┼──────┤
+        │Σ        │list[int,list[int,list[int]],i32[3]]│6    │12.00B│
+        └─────────┴────────────────────────────────────┴─────┴──────┘
 
     Example:
         Display flops of a function in tree summary
@@ -662,14 +506,14 @@ def tree_summary(
         def reduce_func(acc, node):
             return acc + tree_summary.size_dispatcher(node)
 
-        leaves, _ = treelib.tree_flatten(tree)
+        leaves, _ = treelib.flatten(tree)
         return ft.reduce(reduce_func, leaves, 0)
 
     def tree_count(tree: PyTree) -> int:
         def reduce_func(acc, node):
             return acc + tree_summary.count_dispatcher(node)
 
-        leaves, _ = treelib.tree_flatten(tree)
+        leaves, _ = treelib.flatten(tree)
         return ft.reduce(reduce_func, leaves, 0)
 
     traces_leaves = tree_type_path_leaves(
@@ -725,6 +569,21 @@ for ndarray in arraylib.ndarrays:
         dtype = arraylib.dtype(node)
         return tree_repr(ShapeDTypePP(shape, dtype))
 
+@tree_summary.def_type(list)
+@tree_summary.def_type(tuple)
+def _(node: tuple) -> str:
+    # - output Container[types,...] instead of just container type in the type col.
+    # - usually this encounterd if the tree_summary depth is not inf
+    #   so the tree leaves could contain non-atomic types.
+    treelib = sepes._src.backend.treelib
+
+    one_level_types = treelib.map(
+        tree_summary.type_dispatcher,
+        node,
+        is_leaf=lambda x: False if id(x) == id(node) else True,
+    )
+    return f"{type(node).__name__}[{','.join(one_level_types)}]"
+
 
 if is_package_avaiable("jax"):
     # jax pretty printing extra handlers
@@ -764,4 +623,19 @@ if is_package_avaiable("jax"):
         shape = node.aval.shape
         dtype = node.aval.dtype
         string = tree_repr.dispatch(ShapeDTypePP(shape, dtype), **spec)
-        return f"Tracer({string})"
+        return f"{type(node).__name__}({string})"
+
+    # handle the sharding info if it is sharded
+    @tree_summary.def_type(jax.Array)
+    def _(node: Any) -> str:
+        """Return the type repr of the node."""
+        # global shape
+        global_shape = arraylib.shape(node)
+        shard_shape = node.sharding.shard_shape(global_shape)
+        dtype = arraylib.dtype(node)
+        global_info = tree_repr(ShapeDTypePP(global_shape, dtype))
+
+        if global_shape == shard_shape:
+            return global_info
+        shard_info = tree_repr(ShapeDTypePP(shard_shape, dtype))
+        return f"G:{global_info}\nS:{shard_info}"

@@ -477,7 +477,7 @@ def construct_tree(
     return root
 
 
-def value_and_tree(func, argnums: int | Sequence[int] = 0):
+def value_and_tree(func: Callable[..., T], argnums: int | Sequence[int] = 0):
     """Call a function on copied input argument and return the value and the tree.
 
     Input arguments are copied before calling the function, and the argument
@@ -590,7 +590,7 @@ def value_and_tree(func, argnums: int | Sequence[int] = 0):
         return False
 
     @ft.wraps(func)
-    def stateless_func(*args, **kwargs) -> tuple[Any, PyTree | tuple[PyTree, ...]]:
+    def stateless_func(*args, **kwargs) -> tuple[T, PyTree | tuple[PyTree, ...]]:
         # copy the incoming inputs
         (args, kwargs) = tree_copy((args, kwargs))
         # and edit the node/record to make it mutable (if there is a rule for it)

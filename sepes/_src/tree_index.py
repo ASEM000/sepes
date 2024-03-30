@@ -297,7 +297,6 @@ class at(Generic[T]):
         >>> sp.at(tree)[mask].set(100)
         {'a': 1, 'b': [1, 100, 100]}
     """
-
     def __init__(self, tree: T, where: list[Any] | None = None) -> None:
         self.tree = tree
         self.where = [] if where is None else where

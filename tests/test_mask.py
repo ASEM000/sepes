@@ -24,6 +24,7 @@ from sepes._src.code_build import autoinit
 from sepes._src.tree_base import TreeClass
 from sepes._src.tree_mask import is_masked, tree_mask, tree_unmask
 from sepes._src.tree_util import is_tree_equal, leafwise, tree_hash
+import dataclasses as dc
 
 test_arraylib = os.environ.get("SEPES_TEST_ARRAYLIB", "numpy")
 freeze = ft.partial(tree_mask, cond=lambda _: True)

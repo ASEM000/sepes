@@ -245,7 +245,12 @@ def tree_mask(
         >>> sp.tree_unmask(masked_tree)
         [MyInt(value=1), MyInt(value=2), {'a': MyInt(value=3)}]
     """
-    return _tree_mask_map(tree, cond=cond, func=tree_mask.dispatcher, is_leaf=is_leaf)
+    return _tree_mask_map(
+        tree,
+        cond=cond,
+        func=tree_mask.dispatcher,
+        is_leaf=is_leaf,
+    )
 
 
 tree_mask.dispatcher = ft.singledispatch(_MaskedHashable)
@@ -314,10 +319,7 @@ def tree_unmask(tree: T, cond: Callable[[Any], bool] = lambda _: True):
         [MyInt(value=1), MyInt(value=2), {'a': MyInt(value=3)}]
     """
     return _tree_mask_map(
-        tree,
-        cond=cond,
-        func=tree_unmask.dispatcher,
-        is_leaf=is_masked,
+        tree, cond=cond, func=tree_unmask.dispatcher, is_leaf=is_masked
     )
 
 

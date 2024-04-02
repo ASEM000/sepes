@@ -1,5 +1,46 @@
 # Changelog
 
+## v0.12.1
+
+
+### Additions
+
+- Add ability to register custom types for masking wrappers.
+
+    Example to define a custom masking wrapper for a specific type.
+
+    ```python
+    import sepes as sp
+    import jax
+    import dataclasses as dc
+    @dc.dataclass
+    class MyInt:
+        value: int
+    @dc.dataclass
+    class MaskedInt:
+        value: MyInt
+    # define a rule of how to mask instances of MyInt
+    @sp.tree_mask.def_type(MyInt)
+    def mask_int(value):
+        return MaskedInt(value)
+    # define a rule how to unmask the MaskedInt wrapper
+    @sp.tree_unmask.def_type(MaskedInt)
+    def unmask_int(value):
+        return value.value
+    tree = [MyInt(1), MyInt(2), {"a": MyInt(3)}]
+    masked_tree = sp.tree_mask(tree, cond=lambda _: True)
+    
+    masked_tree
+    #[MaskedInt(value=MyInt(value=1)), MaskedInt(value=MyInt(value=2)), {'a': MaskedInt(value=MyInt(value=3))}]
+    
+    sp.tree_unmask(masked_tree)
+    #[MyInt(value=1), MyInt(value=2), {'a': MyInt(value=3)}]
+
+    # `is_masked` recognizes the new masked type
+    assert is_masked(masked_tree[0]) is True
+    ```
+
+
 ## V0.12
 
 ### Deprecations

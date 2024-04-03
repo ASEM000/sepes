@@ -10,10 +10,21 @@ Install from pip::
 
 
 .. toctree::
-    :caption: API Documentation
-    :maxdepth: 2
+    :caption: 📖 Guides
+    :maxdepth: 1
     
-    API/sepes
+    recipes
+
+.. toctree::
+    :caption: API Documentation
+    :maxdepth: 1
+    
+    API/module
+    API/masking
+    API/tree
+    API/constructor
+    API/pretty_print
+    API/backend
 
 Apache2.0 License.
 

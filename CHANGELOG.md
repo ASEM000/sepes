@@ -2,81 +2,79 @@
 
 ## v0.12.1
 
-
 ### Additions
 
 - Add ability to register custom types for masking wrappers.
 
-    Example to define a custom masking wrapper for a specific type.
+  Example to define a custom masking wrapper for a specific type.
 
-    ```python
-    import sepes as sp
-    import jax
-    import dataclasses as dc
-    @dc.dataclass
-    class MyInt:
-        value: int
-    @dc.dataclass
-    class MaskedInt:
-        value: MyInt
-    # define a rule of how to mask instances of MyInt
-    @sp.tree_mask.def_type(MyInt)
-    def mask_int(value):
-        return MaskedInt(value)
-    # define a rule how to unmask the MaskedInt wrapper
-    @sp.tree_unmask.def_type(MaskedInt)
-    def unmask_int(value):
-        return value.value
-    tree = [MyInt(1), MyInt(2), {"a": MyInt(3)}]
-    masked_tree = sp.tree_mask(tree, cond=lambda _: True)
-    
-    masked_tree
-    #[MaskedInt(value=MyInt(value=1)), MaskedInt(value=MyInt(value=2)), {'a': MaskedInt(value=MyInt(value=3))}]
-    
-    sp.tree_unmask(masked_tree)
-    #[MyInt(value=1), MyInt(value=2), {'a': MyInt(value=3)}]
+  ```python
+  import sepes as sp
+  import jax
+  import dataclasses as dc
+  @dc.dataclass
+  class MyInt:
+      value: int
+  @dc.dataclass
+  class MaskedInt:
+      value: MyInt
+  # define a rule of how to mask instances of MyInt
+  @sp.tree_mask.def_type(MyInt)
+  def mask_int(value):
+      return MaskedInt(value)
+  # define a rule how to unmask the MaskedInt wrapper
+  @sp.tree_unmask.def_type(MaskedInt)
+  def unmask_int(value):
+      return value.value
+  tree = [MyInt(1), MyInt(2), {"a": MyInt(3)}]
+  masked_tree = sp.tree_mask(tree, cond=lambda _: True)
 
-    # `is_masked` recognizes the new masked type
-    assert is_masked(masked_tree[0]) is True
-    ```
+  masked_tree
+  #[MaskedInt(value=MyInt(value=1)), MaskedInt(value=MyInt(value=2)), {'a': MaskedInt(value=MyInt(value=3))}]
 
+  sp.tree_unmask(masked_tree)
+  #[MyInt(value=1), MyInt(value=2), {'a': MyInt(value=3)}]
+
+  # `is_masked` recognizes the new masked type
+  assert is_masked(masked_tree[0]) is True
+  ```
 
 ## V0.12
 
 ### Deprecations
 
 - Reduce the core API size by removing:
-  1)  `tree_graph` (for graphviz)
-  2)  `tree_mermaid` (mermaidjs)
-  3)  `Partial/partial` -> Use `jax.tree_util.Partial` instead.
-  4)  `is_tree_equal` -> Use `bcmap(numpy.testing.*)(pytree1, pytree2)` instead.
-  5) `freeze`  -> Use `ft.partial(tree_mask, lambda _: True)` instead.
-  6)  `unfreeze` -> Use `tree_unmask` instead.
-  7) `is_nondiff`
-  8) `BaseKey`
-
+  1.  `tree_graph` (for graphviz)
+  2.  `tree_mermaid` (mermaidjs)
+  3.  `Partial/partial` -> Use `jax.tree_util.Partial` instead.
+  4.  `is_tree_equal` -> Use `bcmap(numpy.testing.*)(pytree1, pytree2)` instead.
+  5.  `freeze` -> Use `ft.partial(tree_mask, lambda _: True)` instead.
+  6.  `unfreeze` -> Use `tree_unmask` instead.
+  7.  `is_nondiff`
+  8.  `BaseKey`
 
 ### Changes
 
 - `tree_{mask,unmask}` now accepts only callable `cond` argument.
-  
-   For masking using pytree boolean mask use the following pattern:
-    
-    ```python
-    import jax
-    import sepes as sp
-    import functools as ft
-    tree = [[1, 2], 3] # the nested tree
-    where = [[True, False], True]  # mask tree[0][1] and tree[1]
-    mask = ft.partial(sp.tree_mask, cond=lambda _: True)
-    sp.at(tree)[where].apply(mask)  # apply using `at`
-    # [[#1, 2], #3]
-    # or simply apply to the node directly
-    tree = [[mask(1), 2], mask(3)]
-    # [[#1, 2], #3]
-    ```
+
+  For masking using pytree boolean mask use the following pattern:
+
+  ```python
+  import jax
+  import sepes as sp
+  import functools as ft
+  tree = [[1, 2], 3] # the nested tree
+  where = [[True, False], True]  # mask tree[0][1] and tree[1]
+  mask = ft.partial(sp.tree_mask, cond=lambda _: True)
+  sp.at(tree)[where].apply(mask)  # apply using `at`
+  # [[#1, 2], #3]
+  # or simply apply to the node directly
+  tree = [[mask(1), 2], mask(3)]
+  # [[#1, 2], #3]
+  ```
 
 - Rename `is_frozen` to `is_masked`
+
   - frozen could mean non-trainable array, however the masking is not only for arrays but also for other types that will be hidden across jax transformations.
 
 - Rename `AtIndexer` to `at` for shorter syntax.
@@ -86,7 +84,7 @@
 - Add `fill_value` in `at[...].get(fill_value=...)` to add default value for non
   selected leaves. Useful for arrays under `jax.jit` to avoid variable size related errors.
 - Add `jax.tree_util.{SequenceKey,GetAttrKey,DictKey}` as valid path keys in `at[...]`.
-  
+
 ## V0.11.3
 
 - Raise error if `autoinit` is used with `__init__` method defined.
@@ -94,43 +92,43 @@
 - Add `at` as an alias for `AtIndexer` for shorter syntax.
 - Deprecate `AtIndexer.__call__` in favor of `value_and_tree` to apply function in a functional manner by copying the input argument.
 
-    ```python
-    import sepes as sp
-    class Counter(sp.TreeClass):
-        def __init__(self, count: int):
-            self.count = count
-        def increment(self, value):
-            self.count += value
-            return self.count
-    counter = Counter(0)
-    # the function follow jax.value_and_grad semantics where the tree is the
-    # copied mutated input argument, if the function mutates the input arguments
-    sp.value_and_tree(lambda C: C.increment(1))(counter)
-    # (1, Counter(count=1))
-    ```
+  ```python
+  import sepes as sp
+  class Counter(sp.TreeClass):
+      def __init__(self, count: int):
+          self.count = count
+      def increment(self, value):
+          self.count += value
+          return self.count
+  counter = Counter(0)
+  # the function follow jax.value_and_grad semantics where the tree is the
+  # copied mutated input argument, if the function mutates the input arguments
+  sp.value_and_tree(lambda C: C.increment(1))(counter)
+  # (1, Counter(count=1))
+  ```
 
 - Add sharding info in `tree_summary`, `G` for global, `S` for sharded shape.
-  
-    ```python
-    import jax
-    import sepes as sp
-    from jax.sharding import Mesh, NamedSharding as N, PartitionSpec as P
-    import numpy as np
-    import os
-    os.environ["XLA_FLAGS"] = "--xla_force_host_platform_device_count=8"
-    x = jax.numpy.ones([4 * 4, 2 * 2])
-    mesh = Mesh(devices=np.array(jax.devices()).reshape(4, 2), axis_names=["i", "j"])
-    sharding = N(mesh=mesh, spec=P("i", "j"))
-    x = jax.device_put(x, device=sharding)
 
-    print(sp.tree_summary(x))
-    ┌────┬───────────┬─────┬───────┐
-    │Name│Type       │Count│Size   │
-    ├────┼───────────┼─────┼───────┤
-    │Σ   │G:f32[16,4]│64   │256.00B│
-    │    │S:f32[4,2] │     │       │
-    └────┴───────────┴─────┴───────┘
-    ```
+  ```python
+  import jax
+  import sepes as sp
+  from jax.sharding import Mesh, NamedSharding as N, PartitionSpec as P
+  import numpy as np
+  import os
+  os.environ["XLA_FLAGS"] = "--xla_force_host_platform_device_count=8"
+  x = jax.numpy.ones([4 * 4, 2 * 2])
+  mesh = Mesh(devices=np.array(jax.devices()).reshape(4, 2), axis_names=["i", "j"])
+  sharding = N(mesh=mesh, spec=P("i", "j"))
+  x = jax.device_put(x, device=sharding)
+
+  print(sp.tree_summary(x))
+  ┌────┬───────────┬─────┬───────┐
+  │Name│Type       │Count│Size   │
+  ├────┼───────────┼─────┼───────┤
+  │Σ   │G:f32[16,4]│64   │256.00B│
+  │    │S:f32[4,2] │     │       │
+  └────┴───────────┴─────┴───────┘
+  ```
 
 - Updated docstrings. e.g. How to construct flops counter in `tree_summary` using `jax.jit`
 

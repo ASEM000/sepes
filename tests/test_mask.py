@@ -13,6 +13,7 @@
 # limitations under the License.
 
 import copy
+import dataclasses as dc
 import functools as ft
 import os
 from typing import Any
@@ -24,7 +25,6 @@ from sepes._src.code_build import autoinit
 from sepes._src.tree_base import TreeClass
 from sepes._src.tree_mask import is_masked, tree_mask, tree_unmask
 from sepes._src.tree_util import is_tree_equal, leafwise, tree_hash
-import dataclasses as dc
 
 test_arraylib = os.environ.get("SEPES_TEST_ARRAYLIB", "numpy")
 freeze = ft.partial(tree_mask, cond=lambda _: True)
@@ -429,24 +429,31 @@ def test_array_tree_mask_tree_unmask():
 
 
 def test_custom_mask_unmask_wrappers():
-
     @dc.dataclass
     class MyInt:
         value: int
+
     @dc.dataclass
     class MaskedInt:
         value: MyInt
+
     # define a rule of how to mask instances of MyInt
     @tree_mask.def_type(MyInt)
     def mask_int(value):
         return MaskedInt(value)
+
     # define a rule how to unmask the MaskedInt wrapper
     @tree_unmask.def_type(MaskedInt)
     def unmask_int(value):
         return value.value
+
     tree = [MyInt(1), MyInt(2), {"a": MyInt(3)}]
     masked_tree = tree_mask(tree, cond=lambda _: True)
     masked_tree
-    assert tree_unmask(masked_tree) == [MyInt(value=1), MyInt(value=2), {'a': MyInt(value=3)}]
+    assert tree_unmask(masked_tree) == [
+        MyInt(value=1),
+        MyInt(value=2),
+        {"a": MyInt(value=3)},
+    ]
     # check the mask type is recognized by is_masked
     assert is_masked(masked_tree[0]) is True

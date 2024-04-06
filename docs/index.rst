@@ -13,7 +13,8 @@ Install from pip::
     :caption: 📖 Guides
     :maxdepth: 1
     
-    recipes
+    notebooks/[guides]surgery
+    notebooks/[guides]optimlib
 
 .. toctree::
     :caption: API Documentation

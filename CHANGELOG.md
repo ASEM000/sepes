@@ -39,6 +39,8 @@
   assert is_masked(masked_tree[0]) is True
   ```
 
+- Add `dataclasses` rule for `tree_{repr,str}`
+
 ## V0.12
 
 ### Deprecations

@@ -14,7 +14,6 @@ Install from pip::
     :maxdepth: 1
     
     notebooks/[guides]surgery
-    notebooks/[guides]optimlib
 
 .. toctree::
     :caption: API Documentation

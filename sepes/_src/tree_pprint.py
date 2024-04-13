@@ -669,3 +669,10 @@ if is_package_avaiable("jax"):
             return global_info
         shard_info = tree_repr(ShapeDTypePP(shard_shape, dtype))
         return f"G:{global_info}\nS:{shard_info}"
+
+    @tree_str.def_type(type(jax.numpy.float32))
+    @tree_repr.def_type(type(jax.numpy.float32))
+    def _(node, **spec: Unpack[PPSpec]) -> str:
+        out = str(node.dtype)
+        out = out.replace("float", "f").replace("int", "i").replace("complex", "c")
+        return f"jax.numpy.{out}"

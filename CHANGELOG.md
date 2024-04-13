@@ -39,7 +39,7 @@
   assert is_masked(masked_tree[0]) is True
   ```
 
-- Add `dataclasses` rule for `tree_{repr,str}`
+- Add `dataclasses`, `dtype` rule for `tree_{repr,str}`
 
 ## V0.12
 

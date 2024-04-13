@@ -32,5 +32,3 @@ Indices
 =======
 
 * :ref:`genindex`
-
-

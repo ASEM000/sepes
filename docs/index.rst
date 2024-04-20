@@ -10,10 +10,10 @@ Install from pip::
 
 
 .. toctree::
-    :caption: 📖 Guides
+    :caption: 📖 Recipes
     :maxdepth: 1
     
-    notebooks/[guides]surgery
+    recipes
 
 .. toctree::
     :caption: API Documentation

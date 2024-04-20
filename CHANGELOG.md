@@ -4,6 +4,42 @@
 
 ### Additions
 
+- Expose `at.def_rule` to define custom matchers.
+
+  Example: Define a type matcher that matches based on the name, dtype, and shape
+  of the leaf and then apply a function to the matched leaf.
+
+  ```python
+  import sepes as sp
+  import jax
+  import jax.numpy as jnp
+  import dataclasses as dc
+  @dc.dataclass
+  class NameDtypeShapeMatcher:
+      name: str
+      dtype: jnp.dtype
+      shape: tuple[int, ...]
+  def compare(matcher: NameDtypeShapeMatcher, key, leaf) -> bool:
+      if not isinstance(leaf, jax.Array):
+          return False
+      if isinstance(key, str):
+          key = key
+      elif isinstance(key, jax.tree_util.GetAttrKey):
+          key = key.name
+      elif isinstance(key, jax.tree_util.DictKey):
+          key = key.key
+      return matcher.name == key and matcher.dtype == leaf.dtype and matcher.shape == leaf.shape
+  tree = dict(weight=jnp.arange(9).reshape(3, 3), bias=jnp.zeros(3))
+  sp.at.def_rule(NameDtypeShapeMatcher, compare)
+  matcher = NameDtypeShapeMatcher('weight', jnp.int32, (3, 3))
+  to_symmetric = lambda x: (x + x.T) / 2
+  sp.at(tree)[matcher].apply(to_symmetric)
+  # {'bias': Array([0., 0., 0.], dtype=float32),
+  #     'weight': Array([[0., 2., 4.],
+  #         [2., 4., 6.],
+  #         [4., 6., 8.]], dtype=float32)}
+  ```
+
 - Add ability to register custom types for masking wrappers.
 
   Example to define a custom masking wrapper for a specific type.

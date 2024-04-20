@@ -39,7 +39,7 @@ from __future__ import annotations
 import abc
 import functools as ft
 import re
-from typing import Any, Callable, Generic, Hashable, TypeVar, Sequence
+from typing import Any, Callable, Generic, Hashable, Sequence, TypeVar
 
 from typing_extensions import Self
 
@@ -52,6 +52,7 @@ from sepes._src.tree_pprint import tree_repr
 T = TypeVar("T")
 S = TypeVar("S")
 PyTree = Any
+Leaf = Any
 EllipsisType = TypeVar("EllipsisType")
 PathKeyEntry = TypeVar("PathKeyEntry", bound=Hashable)
 _no_initializer = object()
@@ -62,12 +63,13 @@ class BaseKey(abc.ABC):
     """Parent class for all match classes."""
 
     @abc.abstractmethod
-    def __eq__(self, entry: PathKeyEntry) -> bool:
+    def compare(self, entry: PathKeyEntry, leaf: Leaf) -> bool:
         pass
 
     @property
     @abc.abstractmethod
-    def broadcast(self): ...
+    def broadcast(self):
+        ...
 
 
 _INVALID_INDEXER = """\
@@ -78,6 +80,7 @@ Indexing with {indexer} is not implemented, supported indexing types are:
   - ``re.Pattern`` to match a leaf level path with a regex pattern.
   - Boolean mask of a compatible structure as the pytree.
   - `tuple` of the above types to match multiple leaves at the same level.
+  - Custom matchers defined with `at.def_rule`.
 """
 
 _NO_LEAF_MATCH = """\
@@ -139,8 +142,8 @@ def generate_path_mask(tree, where: tuple[BaseKey, ...], *, is_leaf=None):
 
         # ensure that the path is not empty
         if len(path) == len(where):
-            for pi, ki in zip(path, where):
-                if pi != ki:
+            for wi, pi in zip(where, path):
+                if not wi.compare(pi, leaf):
                     return false_tree(leaf)
             match = True
             return true_tree(leaf)
@@ -150,7 +153,7 @@ def generate_path_mask(tree, where: tuple[BaseKey, ...], *, is_leaf=None):
             # path entry matches the current where entry, if not then return
             # a false tree to stop traversing deeper into the tree.
             (cur_where, *rest_where), (cur_path, *_) = where, path
-            if cur_where == cur_path:
+            if cur_where.compare(cur_path, leaf):
                 # where is nonlocal to the function
                 # so reduce the where path by one level and traverse deeper
                 # then restore the where path to the original value before
@@ -236,7 +239,7 @@ def resolve_where(
             # valid resolution of `BaseKey` is a valid indexing leaf
             # makes it possible to dispatch on multi-leaf pytree
             level_paths += [resolved_key]
-            return False
+            return True
 
         if type(node) is tuple and seen_tuple is False:
             # e.g. `at[1,2,3]` but not `at[1,(2,3)]``
@@ -283,6 +286,7 @@ class at(Generic[T]):
             - ``...`` to select all leaves.
             - a boolean mask of the same structure as the tree
             - ``re.Pattern`` to match a leaf level path with a regex pattern.
+            - Custom matchers defined with ``at.def_rule``.
             - a tuple of the above to match multiple keys at the same level.
 
     Example:
@@ -297,6 +301,7 @@ class at(Generic[T]):
         >>> sp.at(tree)[mask].set(100)
         {'a': 1, 'b': [1, 100, 100]}
     """
+
     def __init__(self, tree: T, where: list[Any] | None = None) -> None:
         self.tree = tree
         self.where = [] if where is None else where
@@ -685,38 +690,81 @@ class at(Generic[T]):
         treelib.flatten(tree, is_leaf=aggregate_subtrees)
         return subtrees
 
+    @staticmethod
+    def def_rule(
+        matcher_type: type[T],
+        compare: Callable[[T, PathKeyEntry, Leaf], bool],
+        *,
+        broadcastable: bool = False,
+    ) -> None:
+        """Define a rule to match user input to with the corresponding path and leaf entry.
+
+        Args:
+            matcher_type: the user match object type to match with the path and leaf entry.
+            compare: a function to compare the user matcher object with the path
+                and leaf entry the function accepts the user input, the path entry,
+                and the leaf value and returns a boolean value to mark if the user
+                input matches the path and leaf entry.
+            broadcastable: if the user type match result should be broadcasted to the
+                full subtree. Default to ``False``.
+
+        Example:
+            Define a type matcher that matches based on the name, dtype, and shape
+            of the leaf and then apply a function to the matched leaf.
+
+            >>> import sepes as sp
+            >>> import jax
+            >>> import jax.numpy as jnp
+            >>> import dataclasses as dc
+            >>> @dc.dataclass
+            ... class NameDtypeShapeMatcher:
+            ...     name: str
+            ...     dtype: jnp.dtype
+            ...     shape: tuple[int, ...]
+            >>> def compare(matcher: NameDtypeShapeMatcher, key, leaf) -> bool:
+            ...     if not isinstance(leaf, jax.Array):
+            ...         return False
+            ...     if isinstance(key, str):
+            ...         key = key
+            ...     elif isinstance(key, jax.tree_util.GetAttrKey):
+            ...         key = key.name
+            ...     elif isinstance(key, jax.tree_util.DictKey):
+            ...         key = key.key
+            ...     return matcher.name == key and matcher.dtype == leaf.dtype and matcher.shape == leaf.shape
+            >>> tree = dict(weight=jnp.arange(9).reshape(3, 3), bias=jnp.zeros(3))
+            >>> sp.at.def_rule(NameDtypeShapeMatcher, compare)
+            >>> matcher = NameDtypeShapeMatcher('weight', jnp.int32, (3, 3))
+            >>> to_symmetric = lambda x: (x + x.T) / 2
+            >>> sp.at(tree)[matcher].apply(to_symmetric)
+            {'bias': Array([0., 0., 0.], dtype=float32),
+             'weight': Array([[0., 2., 4.],
+                    [2., 4., 6.],
+                    [4., 6., 8.]], dtype=float32)}
+        """
+
+        # remove the BaseKey abstraction from the user-facing function
+        class UserKey(BaseKey):
+            broadcast: bool = broadcastable
+
+            def __init__(self, input: T):
+                self.input = input
+
+            def compare(self, key: PathKeyEntry, leaf: Leaf) -> bool:
+                return compare(self.input, key, leaf)
+
+        at.dispatcher.register(matcher_type, UserKey)
+
 
 # pass through for boolean pytrees masks and tuple of keys
 at.dispatcher = ft.singledispatch(lambda x: x)
 
 
-def def_rule(
-    user_type: type[T],
-    path_compare_func: Callable[[T, PathKeyEntry], bool],
-    *,
-    broadcastable: bool = False,
-) -> None:
-    # remove the BaseKey abstraction from the user-facing function
-    class UserKey(BaseKey):
-        broadcast: bool = broadcastable
-
-        def __init__(self, input: T):
-            self.input = input
-
-        def __eq__(self, key: PathKeyEntry) -> bool:
-            return path_compare_func(self.input, key)
-
-    at.dispatcher.register(user_type, UserKey)
+# key rules to match user input to with the path and leaf entry
 
 
-at.def_rule = def_rule
-
-
-# key rules to match user input to with the path entry
-
-
-def str_compare(name: str, key: PathKeyEntry):
+def str_compare(name: str, key: PathKeyEntry, leaf: Leaf) -> bool:
     """Match a leaf with a given name."""
+    del leaf
     if isinstance(key, str):
         return name == key
     treelib = sepes._src.backend.treelib
@@ -727,8 +775,9 @@ def str_compare(name: str, key: PathKeyEntry):
     return False
 
 
-def int_compare(idx: int, key: PathKeyEntry) -> bool:
+def int_compare(idx: int, key: PathKeyEntry, leaf: Leaf) -> bool:
     """Match a leaf with a given index."""
+    del leaf
     if isinstance(key, int):
         return idx == key
     treelib = sepes._src.backend.treelib
@@ -737,8 +786,9 @@ def int_compare(idx: int, key: PathKeyEntry) -> bool:
     return False
 
 
-def regex_compare(pattern: re.Pattern, key: PathKeyEntry) -> bool:
+def regex_compare(pattern: re.Pattern, key: PathKeyEntry, leaf: Leaf) -> bool:
     """Match a path with a regex pattern inside 'at' property."""
+    del leaf
     if isinstance(key, str):
         return re.fullmatch(pattern, key) is not None
     treelib = sepes._src.backend.treelib
@@ -749,7 +799,8 @@ def regex_compare(pattern: re.Pattern, key: PathKeyEntry) -> bool:
     return False
 
 
-def ellipsis_compare(_, __):
+def ellipsis_compare(_, key: PathKeyEntry, leaf: Leaf) -> bool:
+    del key, leaf
     return True
 
 
@@ -762,11 +813,11 @@ at.def_rule(type(...), ellipsis_compare, broadcastable=True)
 class MultiKey(BaseKey):
     """Match a leaf with multiple keys at the same level."""
 
-    def __init__(self, *keys):
-        self.keys = tuple(keys)
+    def __init__(self, *keys: BaseKey):
+        self.keys = keys
 
-    def __eq__(self, entry: PathKeyEntry) -> bool:
-        return any(entry == key for key in self.keys)
+    def compare(self, entry: PathKeyEntry, leaf: Leaf) -> bool:
+        return any(key.compare(entry, leaf) for key in self.keys)
 
     broadcast: bool = False
 
@@ -774,8 +825,9 @@ class MultiKey(BaseKey):
 if is_package_avaiable("jax"):
     import jax.tree_util as jtu
 
-    def jax_key_compare(input, key: PathKeyEntry) -> bool:
+    def jax_key_compare(input, key: PathKeyEntry, leaf: Leaf) -> bool:
         """Enable indexing with jax keys directly in `at`."""
+        del leaf
         return input == key
 
     at.def_rule(jtu.SequenceKey, jax_key_compare, broadcastable=False)

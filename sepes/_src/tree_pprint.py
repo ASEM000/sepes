@@ -683,7 +683,7 @@ if is_package_avaiable("jax"):
 
     @tree_repr.def_type(jax.tree_util.GetAttrKey)
     def _(node: Any, **_: Unpack[PPSpec]) -> str:
-        return f".{node.name!r}"
+        return f".{node.name}"
 
     @tree_repr.def_type(jax.tree_util.SequenceKey)
     def _(node: Any, **_: Unpack[PPSpec]) -> str:
@@ -708,4 +708,4 @@ if is_package_avaiable("optree"):
 
     @tree_repr.def_type(GetAttrKey)
     def _(node: Any, **_: Unpack[PPSpec]) -> str:
-        return f".{node.name!r}"
+        return f".{node.name}"

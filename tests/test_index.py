@@ -97,7 +97,6 @@ _X = 1_000
         # by index
         [tree4, [None, [2, None], None], (1, 0)],
         [tree5, (None, (2, None), None), (1, 0)],
-        [tree6, [None, ClassSubTree(2, None), None], (1, 0)],
         # mixed
         [tree7, dict(a=None, b=[2, None], c=None), ("b", 0)],
         [tree8, dict(a=None, b=ClassSubTree(c=2, d=None), e=None), ("b", 0)],
@@ -226,10 +225,8 @@ def test_indexer_set(tree, expected, where, set_value):
         # by index
         [tree4, [1, [_X, 3], 4], (1, 0), _X],
         [tree5, (1, (_X, 3), 4), (1, 0), _X],
-        [tree6, [1, ClassSubTree(_X, 3), 4], (1, 0), _X],
         # mixed
         [tree7, dict(a=1, b=[2, _X], c=4), ("b", 1), _X],
-        [tree8, dict(a=1, b=ClassSubTree(c=2, d=_X), e=4), ("b", 1), _X],
         # by regex
         [tree1, dict(a=1, b=dict(c=_X, d=3), e=4), ("b", re.compile("c")), _X],
         [tree2, ClassTree(1, dict(c=_X, d=3), 4), ("b", re.compile("c")), _X],

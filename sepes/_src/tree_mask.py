@@ -30,6 +30,30 @@ T = TypeVar("T")
 MaskType = Union[T, Callable[[Any], bool]]
 
 
+def is_nondiff(value: Any) -> bool:
+    return is_nondiff.type_dispatcher(value)
+
+
+is_nondiff.type_dispatcher = ft.singledispatch(lambda _: True)
+is_nondiff.def_type = is_nondiff.type_dispatcher.register
+
+
+for ndarray in arraylib.ndarrays:
+
+    @is_nondiff.def_type(ndarray)
+    def is_nondiff_array(value) -> bool:
+        # return True if the node is non-inexact type, otherwise False
+        if arraylib.is_inexact(value):
+            return False
+        return True
+
+
+@is_nondiff.def_type(float)
+@is_nondiff.def_type(complex)
+def _(_: float | complex) -> bool:
+    return False
+
+
 class _MaskedError(NamedTuple):
     opname: str
 
@@ -123,86 +147,13 @@ class _MaskedArray(_MaskBase):
         return arraylib.array_equal(lhs, rhs)
 
 
-def mask(value: T) -> _MaskBase[T]:
-    # dispatching is used to customize the type of the wrapper based on the type
-    # of the value. For instance, hashable values dont need custom hash and
-    # equality implementations, so they are wrapped with a simpler wrapper.
-    # this approach avoids type logic in the wrapper equality and hash methods,
-    # thus effectively improving performance of the wrapper.
-    return mask.type_dispatcher(value)
-
-
-mask.type_dispatcher = ft.singledispatch(_MaskedHashable)
-mask.def_type = mask.type_dispatcher.register
-
-
-for ndarray in arraylib.ndarrays:
-
-    @mask.def_type(ndarray)
-    def mask_array(value: T) -> _MaskedArray[T]:
-        # wrap arrays with a custom wrapper that implements hash and equality
-        # arrays can be hashed by converting them to bytes and hashing the bytes
-        return _MaskedArray(value)
-
-
-@mask.def_type(_MaskBase)
-def _(value: _MaskBase[T]) -> _MaskBase[T]:
-    # idempotent mask operation, meaning that mask(mask(x)) == mask(x)
-    # this is useful to avoid recursive unwrapping of frozen values, plus its
-    # meaningless to mask a frozen value.
-    return value
-
-
-def is_masked(value: Any) -> bool:
-    """Returns True if the value is a frozen wrapper."""
-    return isinstance(value, _MaskBase)
-
-
-def unmask(value: T) -> T:
-    return unmask.type_dispatcher(value)
-
-
-unmask.type_dispatcher = ft.singledispatch(lambda x: x)
-unmask.def_type = unmask.type_dispatcher.register
-
-
-@unmask.def_type(_MaskBase)
-def _(value: _MaskBase[T]) -> T:
-    return getattr(value, "__wrapped__")
-
-
-def is_nondiff(value: Any) -> bool:
-    return is_nondiff.type_dispatcher(value)
-
-
-is_nondiff.type_dispatcher = ft.singledispatch(lambda _: True)
-is_nondiff.def_type = is_nondiff.type_dispatcher.register
-
-
-for ndarray in arraylib.ndarrays:
-
-    @is_nondiff.def_type(ndarray)
-    def is_nondiff_array(value) -> bool:
-        # return True if the node is non-inexact type, otherwise False
-        if arraylib.is_inexact(value):
-            return False
-        return True
-
-
-@is_nondiff.def_type(float)
-@is_nondiff.def_type(complex)
-def _(_: float | complex) -> bool:
-    return False
-
-
 def _tree_mask_map(
     tree: T,
     cond: Callable[[Any], bool],
-    func: type | Callable[[Any], Any],
+    func: Callable[[Any], Any],
     *,
     is_leaf: Callable[[Any], None] | None = None,
 ):
-
     if not isinstance(cond, Callable):
         # a callable that accepts a leaf and returns a boolean
         # but *not* a tree with the same structure as tree with boolean values.
@@ -266,8 +217,44 @@ def tree_mask(
         >>> tree = (1., 2)  # contains a non-differentiable node
         >>> square(sp.tree_mask(tree))
         (Array(2., dtype=float32, weak_type=True), #2)
+
+    Example:
+        Define a custom masking wrapper for a specific type.
+
+        >>> import sepes as sp
+        >>> import jax
+        >>> import dataclasses as dc
+        >>> @dc.dataclass
+        ... class MyInt:
+        ...     value: int
+        >>> @dc.dataclass
+        ... class MaskedInt:
+        ...     value: MyInt
+        >>> # define a rule of how to mask an integer
+        >>> @sp.tree_mask.def_type(MyInt)
+        ... def mask_int(value):
+        ...     return MaskedInt(value)
+        >>> # define a rule how to unmask the wrapper
+        >>> @sp.tree_unmask.def_type(MaskedInt)
+        ... def unmask_int(value):
+        ...     return value.value
+        >>> tree = [MyInt(1), MyInt(2), {"a": MyInt(3)}]
+        >>> masked_tree = sp.tree_mask(tree, cond=lambda _: True)
+        >>> masked_tree
+        [MaskedInt(value=MyInt(value=1)), MaskedInt(value=MyInt(value=2)), {'a': MaskedInt(value=MyInt(value=3))}]
+        >>> sp.tree_unmask(masked_tree)
+        [MyInt(value=1), MyInt(value=2), {'a': MyInt(value=3)}]
     """
-    return _tree_mask_map(tree, cond=cond, func=mask, is_leaf=is_leaf)
+    return _tree_mask_map(
+        tree,
+        cond=cond,
+        func=tree_mask.dispatcher,
+        is_leaf=is_leaf,
+    )
+
+
+tree_mask.dispatcher = ft.singledispatch(_MaskedHashable)
+tree_mask.def_type = tree_mask.dispatcher.register
 
 
 def tree_unmask(tree: T, cond: Callable[[Any], bool] = lambda _: True):
@@ -303,8 +290,69 @@ def tree_unmask(tree: T, cond: Callable[[Any], bool] = lambda _: True):
         >>> tree = (1., 2)  # contains a non-differentiable node
         >>> square(sp.tree_mask(tree))
         (Array(2., dtype=float32, weak_type=True), #2)
+
+    Example:
+        Define a custom masking wrapper for a specific type.
+
+        >>> import sepes as sp
+        >>> import jax
+        >>> import dataclasses as dc
+        >>> @dc.dataclass
+        ... class MyInt:
+        ...     value: int
+        >>> @dc.dataclass
+        ... class MaskedInt:
+        ...     value: MyInt
+        >>> # define a rule of how to mask an integer
+        >>> @sp.tree_mask.def_type(MyInt)
+        ... def mask_int(value):
+        ...     return MaskedInt(value)
+        >>> # define a rule how to unmask the wrapper
+        >>> @sp.tree_unmask.def_type(MaskedInt)
+        ... def unmask_int(value):
+        ...     return value.value
+        >>> tree = [MyInt(1), MyInt(2), {"a": MyInt(3)}]
+        >>> masked_tree = sp.tree_mask(tree, cond=lambda _: True)
+        >>> masked_tree
+        [MaskedInt(value=MyInt(value=1)), MaskedInt(value=MyInt(value=2)), {'a': MaskedInt(value=MyInt(value=3))}]
+        >>> sp.tree_unmask(masked_tree)
+        [MyInt(value=1), MyInt(value=2), {'a': MyInt(value=3)}]
     """
-    return _tree_mask_map(tree, cond=cond, func=unmask, is_leaf=is_masked)
+    return _tree_mask_map(
+        tree, cond=cond, func=tree_unmask.dispatcher, is_leaf=is_masked
+    )
+
+
+tree_unmask.dispatcher = ft.singledispatch(lambda x: x)
+tree_unmask.def_type = tree_unmask.dispatcher.register
+
+
+for ndarray in arraylib.ndarrays:
+
+    @tree_mask.def_type(ndarray)
+    def mask_array(value: T) -> _MaskedArray[T]:
+        # wrap arrays with a custom wrapper that implements hash and equality
+        # arrays can be hashed by converting them to bytes and hashing the bytes
+        return _MaskedArray(value)
+
+
+@tree_mask.def_type(_MaskBase)
+def _(value: _MaskBase[T]) -> _MaskBase[T]:
+    # idempotent mask operation, meaning that mask(mask(x)) == mask(x)
+    # this is useful to avoid recursive unwrapping of frozen values, plus its
+    # meaningless to mask a frozen value.
+    return value
+
+
+def is_masked(value: Any) -> bool:
+    """Returns True if the value is a frozen wrapper."""
+    types = tuple(set(tree_unmask.dispatcher.registry) - {object})
+    return isinstance(value, types)
+
+
+@tree_unmask.def_type(_MaskBase)
+def _(value: _MaskBase[T]) -> T:
+    return getattr(value, "__wrapped__")
 
 
 if is_package_avaiable("jax"):
@@ -314,6 +362,6 @@ if is_package_avaiable("jax"):
     # otherwise calling `freeze` inside a jax transformation on
     # a tracer will hide the tracer from jax and will cause leaked tracer
     # error.
-    @mask.def_type(jax.core.Tracer)
+    @tree_mask.def_type(jax.core.Tracer)
     def _(value: jax.core.Tracer) -> jax.core.Tracer:
         return value

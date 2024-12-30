@@ -12,7 +12,18 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Utilities for pretty printing pytrees."""
+"""Utilities for pretty printing pytrees.
+
+This module is composed of
+- `tree_rep`:       print a pytree with repr.
+- `tree_str`        print a pytree with str.
+- `tree_diagram`    print a pytree with tree structure diagram like `tree` command.
+- `tree_summary`    print a summary of a pytree with type, count, and size.
+
+Each function is a dispatch function that can be extended to handle custom types.
+For instance `tree_summary` has a `def_{type,count,size}` to handle how certain types
+are displayed in the summary type, count, and size columns.
+"""
 
 from __future__ import annotations
 
@@ -22,7 +33,7 @@ import math
 from itertools import zip_longest
 from math import prod
 from types import FunctionType
-from typing import Any, Callable, NamedTuple, Sequence
+from typing import Any, Callable, NamedTuple, Protocol, Sequence, runtime_checkable
 
 from typing_extensions import TypeAlias, TypedDict, Unpack
 
@@ -35,6 +46,11 @@ from sepes._src.tree_util import (
     is_path_leaf_depth_factory,
     tree_type_path_leaves,
 )
+
+
+@runtime_checkable
+class DataClass(Protocol):
+    __dataclass_fields__: dict[str, Any]
 
 
 class PPSpec(TypedDict):
@@ -62,6 +78,8 @@ def pp(printer, node: Any, **spec: Unpack[PPSpec]) -> str:
 
 
 def pps(pp: PP, xs: Sequence[Any], **spec: Unpack[PPSpec]) -> str:
+    # - NOTE: this function will fail if cyclic references are present
+    #   as the function handles _trees_ and not graphs.
     if spec["depth"] < 1:
         return "..."
 
@@ -271,6 +289,22 @@ def _(node: set, **spec: Unpack[PPSpec]) -> str:
 def _(node: dict, **spec: Unpack[PPSpec]) -> str:
     name = type(node).__name__
     return name + "(" + tree_repr.pps(tree_repr.av_pp, node.items(), **spec) + ")"
+
+
+@tree_repr.def_type(DataClass)
+def _(node: DataClass, **spec: Unpack[PPSpec]) -> str:
+    skip = [k for k, f in node.__dataclass_fields__.items() if not f.repr]
+    name = type(node).__name__
+    kvs = [(k, vars(node)[k]) for k in vars(node) if k not in skip]
+    return f"{name}({tree_repr.pps(tree_repr.av_pp, kvs, **spec)})"
+
+
+@tree_str.def_type(DataClass)
+def _(node: DataClass, **spec: Unpack[PPSpec]) -> str:
+    skip = [k for k, f in node.__dataclass_fields__.items() if not f.repr]
+    name = type(node).__name__
+    kvs = [(k, vars(node)[k]) for k in vars(node) if k not in skip]
+    return f"{name}({tree_str.pps(tree_str.av_pp, kvs, **spec)})"
 
 
 def tree_diagram(
@@ -530,7 +564,7 @@ def tree_summary(
             continue
 
         paths, _ = trace
-        path_string = treelib.keystr(paths)
+        path_string = "".join(map(tree_repr, paths))
         type_string = tree_summary.type_dispatcher(leaf)
         count_string = f"{count:,}" if count else ""
         size_string = size_pp(size) if size else ""
@@ -569,19 +603,15 @@ for ndarray in arraylib.ndarrays:
         dtype = arraylib.dtype(node)
         return tree_repr(ShapeDTypePP(shape, dtype))
 
+
 @tree_summary.def_type(list)
 @tree_summary.def_type(tuple)
 def _(node: tuple) -> str:
     # - output Container[types,...] instead of just container type in the type col.
     # - usually this encounterd if the tree_summary depth is not inf
     #   so the tree leaves could contain non-atomic types.
-    treelib = sepes._src.backend.treelib
-
-    one_level_types = treelib.map(
-        tree_summary.type_dispatcher,
-        node,
-        is_leaf=lambda x: False if id(x) == id(node) else True,
-    )
+    dispatcher = tree_summary.type_dispatcher
+    one_level_types = map(dispatcher, node)
     return f"{type(node).__name__}[{','.join(one_level_types)}]"
 
 
@@ -639,3 +669,43 @@ if is_package_avaiable("jax"):
             return global_info
         shard_info = tree_repr(ShapeDTypePP(shard_shape, dtype))
         return f"G:{global_info}\nS:{shard_info}"
+
+    @tree_str.def_type(type(jax.numpy.float32))
+    @tree_repr.def_type(type(jax.numpy.float32))
+    def _(node, **spec: Unpack[PPSpec]) -> str:
+        out = str(node.dtype)
+        out = out.replace("float", "f").replace("int", "i").replace("complex", "c")
+        return f"jax.numpy.{out}"
+
+
+if is_package_avaiable("jax"):
+    import jax
+
+    @tree_repr.def_type(jax.tree_util.GetAttrKey)
+    def _(node: Any, **_: Unpack[PPSpec]) -> str:
+        return f".{node.name}"
+
+    @tree_repr.def_type(jax.tree_util.SequenceKey)
+    def _(node: Any, **_: Unpack[PPSpec]) -> str:
+        return f"[{node.idx!r}]"
+
+    @tree_repr.def_type(jax.tree_util.DictKey)
+    def _(node: Any, **_: Unpack[PPSpec]) -> str:
+        return f"[{node.key!r}]"
+
+
+if is_package_avaiable("optree"):
+
+    from sepes._src.backend.treelib.optree import SequenceKey, DictKey, GetAttrKey
+
+    @tree_repr.def_type(SequenceKey)
+    def _(node: Any, **_: Unpack[PPSpec]) -> str:
+        return f"[{node.idx!r}]"
+
+    @tree_repr.def_type(DictKey)
+    def _(node: Any, **_: Unpack[PPSpec]) -> str:
+        return f"[{node.key!r}]"
+
+    @tree_repr.def_type(GetAttrKey)
+    def _(node: Any, **_: Unpack[PPSpec]) -> str:
+        return f".{node.name}"

@@ -28,12 +28,6 @@ from sepes._src.backend.treelib import (
 )
 
 
-@dc.dataclass(frozen=True)
-class NamedSequenceKey(jtu.GetAttrKey, jtu.SequenceKey):
-    def __str__(self):
-        return f".{self.name}"
-
-
 class JaxTreeLib(AbstractTreeLib):
     @staticmethod
     def map(
@@ -96,8 +90,8 @@ class JaxTreeLib(AbstractTreeLib):
 
         def flatten_with_keys(tree: Tree):
             dynamic = dict(vars(tree))
-            for idx, key in enumerate(vars(tree)):
-                dynamic[key] = (NamedSequenceKey(idx, key), dynamic[key])
+            for _, key in enumerate(vars(tree)):
+                dynamic[key] = (jtu.GetAttrKey(key), dynamic[key])
             return tuple(dynamic.values()), tuple(dynamic.keys())
 
         jtu.register_pytree_with_keys(klass, flatten_with_keys, unflatten, flatten)
@@ -117,7 +111,3 @@ class JaxTreeLib(AbstractTreeLib):
     @staticmethod
     def dict_key(key: Hashable) -> jtu.DictKey:
         return jtu.DictKey(key)
-
-    @staticmethod
-    def keystr(keys: Any) -> str:
-        return jtu.keystr(keys)

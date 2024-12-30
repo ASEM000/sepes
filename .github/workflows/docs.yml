@@ -24,10 +24,15 @@ jobs:
           python-version: ${{ matrix.python-version }}
       - name: Install dependencies
         run: |
+          python -m pip install --upgrade pip
+          python -m pip install jaxlib jax
           sudo apt install -y pandoc
           python -m pip install --upgrade pip
           pip install .
           pip install -r docs/requirements.txt
+          export SEPES_TEST_ARRAYLIB=jax
+          export SEPES_BACKEND=jax
+          export XLA_FLAGS=--xla_force_host_platform_device_count=8
       - name: Test doctests
         run: |
           cd docs

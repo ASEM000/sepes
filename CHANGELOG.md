@@ -2,6 +2,10 @@
 
 ## v0.12.1
 
+## Breaking Changes
+
+- `jax.tree_util.GetAttrKey` and friends are no longer python `dataclasses`. this change break `NamedSequenceKey` inheritence model. Now `Modules` are simply `GetAttrKey` instances instead of `NamedSequenceKey` instances.
+
 ### Additions
 
 - Expose `at.def_rule` to define custom matchers.

@@ -53,12 +53,6 @@ class GetAttrKey:
         return f".{self.name}"
 
 
-@dc.dataclass(frozen=True)
-class NamedSequenceKey(GetAttrKey, SequenceKey):
-    def __str__(self) -> str:
-        return f".{self.name}"
-
-
 class OpTreeTreeLib(AbstractTreeLib):
     @staticmethod
     def map(
@@ -122,7 +116,7 @@ class OpTreeTreeLib(AbstractTreeLib):
         def flatten(tree: Tree):
             dynamic = dict(vars(tree))
             keys = tuple(dynamic.keys())
-            entries = tuple(NamedSequenceKey(*ik) for ik in enumerate(keys))
+            entries = tuple(GetAttrKey(ki) for ki in keys)
             return (tuple(dynamic.values()), keys, entries)
 
         ot.register_pytree_node(klass, flatten, unflatten, namespace)

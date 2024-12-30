@@ -95,7 +95,6 @@ _X = 1_000
         [tree2, ClassTree(None, dict(c=2, d=None), None), ("b", "c")],
         [tree3, ClassTree(None, ClassSubTree(2, None), None), ("b", "c")],
         # by index
-        [tree3, ClassTree(None, ClassSubTree(c=2, d=None), None), (1, 0)],
         [tree4, [None, [2, None], None], (1, 0)],
         [tree5, (None, (2, None), None), (1, 0)],
         [tree6, [None, ClassSubTree(2, None), None], (1, 0)],
@@ -186,13 +185,10 @@ def test_get_fill_value():
         [tree2, ClassTree(1, dict(c=_X, d=3), 4), ("b", "c"), _X],
         [tree3, ClassTree(1, ClassSubTree(_X, 3), 4), ("b", "c"), _X],
         # by index
-        [tree3, ClassTree(1, ClassSubTree(_X, 3), 4), (1, 0), _X],
         [tree4, [1, [_X, 3], 4], (1, 0), _X],
         [tree5, (1, (_X, 3), 4), (1, 0), _X],
-        [tree6, [1, ClassSubTree(_X, 3), 4], (1, 0), _X],
         # mixed
         [tree7, dict(a=1, b=[2, _X], c=4), ("b", 1), _X],
-        [tree8, dict(a=1, b=ClassSubTree(c=2, d=_X), e=4), ("b", 1), _X],
         # by regex
         [tree1, dict(a=1, b=dict(c=_X, d=3), e=4), ("b", re.compile("c")), _X],
         [tree2, ClassTree(1, dict(c=_X, d=3), 4), ("b", re.compile("c")), _X],
@@ -228,7 +224,6 @@ def test_indexer_set(tree, expected, where, set_value):
         [tree2, ClassTree(1, dict(c=_X, d=3), 4), ("b", "c"), _X],
         [tree3, ClassTree(1, ClassSubTree(_X, 3), 4), ("b", "c"), _X],
         # by index
-        [tree3, ClassTree(1, ClassSubTree(_X, 3), 4), (1, 0), _X],
         [tree4, [1, [_X, 3], 4], (1, 0), _X],
         [tree5, (1, (_X, 3), 4), (1, 0), _X],
         [tree6, [1, ClassSubTree(_X, 3), 4], (1, 0), _X],
@@ -271,10 +266,8 @@ def test_array_indexer_set(tree, expected, where, set_value):
         # by index
         [tree4, [1, [_X, 3], 4], (1, 0)],
         [tree5, (1, (_X, 3), 4), (1, 0)],
-        [tree6, [1, ClassSubTree(_X, 3), 4], (1, 0)],
         # mixed
         [tree7, dict(a=1, b=[2, _X], c=4), ("b", 1)],
-        [tree8, dict(a=1, b=ClassSubTree(c=2, d=_X), e=4), ("b", 1)],
         # by regex
         [tree1, dict(a=1, b=dict(c=_X, d=3), e=4), ("b", re.compile("c"))],
         [tree2, ClassTree(1, dict(c=_X, d=3), 4), ("b", re.compile("c"))],
@@ -310,10 +303,8 @@ def test_indexer_apply(tree, expected, where):
         # by index
         [tree4, [1, [_X, 3], 4], (1, 0)],
         [tree5, (1, (_X, 3), 4), (1, 0)],
-        [tree6, [1, ClassSubTree(_X, 3), 4], (1, 0)],
         # mixed
         [tree7, dict(a=1, b=[2, _X], c=4), ("b", 1)],
-        [tree8, dict(a=1, b=ClassSubTree(c=2, d=_X), e=4), ("b", 1)],
         # by regex
         [tree1, dict(a=1, b=dict(c=_X, d=3), e=4), ("b", re.compile("c"))],
         [tree2, ClassTree(1, dict(c=_X, d=3), 4), ("b", re.compile("c"))],

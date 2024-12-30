@@ -564,7 +564,7 @@ def tree_summary(
             continue
 
         paths, _ = trace
-        path_string = treelib.keystr(paths)
+        path_string = "".join(map(tree_repr, paths))
         type_string = tree_summary.type_dispatcher(leaf)
         count_string = f"{count:,}" if count else ""
         size_string = size_pp(size) if size else ""

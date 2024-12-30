@@ -28,18 +28,17 @@ from sepes._src.backend.treelib import (
     namespace,
 )
 
-
-@dc.dataclass(frozen=True)
 class SequenceKey:
-    idx: int
+    def __init__(self, index: int):
+        self.index = index
 
-@dc.dataclass(frozen=True)
 class DictKey:
-    key: Hashable
+    def __init__(self, key: Hashable):
+        self.key = key
 
-@dc.dataclass(frozen=True)
 class GetAttrKey:
-    name: str
+    def __init__(self, name: str):
+        self.name = name
 
 
 class OpTreeTreeLib(AbstractTreeLib):

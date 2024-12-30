@@ -700,12 +700,12 @@ if is_package_avaiable("optree"):
 
     @tree_repr.def_type(SequenceKey)
     def _(node: Any, **_: Unpack[PPSpec]) -> str:
-        return f"[{repr(node.idx)}]"
+        return f"[{node.idx!r}]"
 
     @tree_repr.def_type(DictKey)
     def _(node: Any, **_: Unpack[PPSpec]) -> str:
-        return f"[{repr(node.key)}]"
+        return f"[{node.key!r}]"
 
     @tree_repr.def_type(GetAttrKey)
     def _(node: Any, **_: Unpack[PPSpec]) -> str:
-        return f".{node.name}"
+        return f".{node.name!r}"

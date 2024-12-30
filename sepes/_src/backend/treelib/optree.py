@@ -33,24 +33,13 @@ from sepes._src.backend.treelib import (
 class SequenceKey:
     idx: int
 
-    def __str__(self):
-        return f"[{repr(self.idx)}]"
-
-
 @dc.dataclass(frozen=True)
 class DictKey:
     key: Hashable
 
-    def __str__(self):
-        return f"[{repr(self.key)}]"
-
-
 @dc.dataclass(frozen=True)
 class GetAttrKey:
     name: str
-
-    def __str__(self):
-        return f".{self.name}"
 
 
 class OpTreeTreeLib(AbstractTreeLib):
@@ -141,7 +130,3 @@ class OpTreeTreeLib(AbstractTreeLib):
     @staticmethod
     def dict_key(key: Hashable) -> DictKey:
         return DictKey(key)
-
-    @staticmethod
-    def keystr(keys: Any) -> str:
-        return "".join(str(key) for key in keys)

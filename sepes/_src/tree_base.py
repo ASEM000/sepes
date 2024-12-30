@@ -167,7 +167,7 @@ class TreeClass(metaclass=TreeClassMeta):
         >>> tree = Tree(a=1, b=2.0)
         >>> tree.at["a"].get()
         Tree(a=1, b=None)
-        >>> tree.at[0].get()
+        >>> tree.at["a"].get()
         Tree(a=1, b=None)
 
     Note:

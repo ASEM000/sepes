@@ -111,7 +111,3 @@ class JaxTreeLib(AbstractTreeLib):
     @staticmethod
     def dict_key(key: Hashable) -> jtu.DictKey:
         return jtu.DictKey(key)
-
-    @staticmethod
-    def keystr(keys: Any) -> str:
-        return jtu.keystr(keys)

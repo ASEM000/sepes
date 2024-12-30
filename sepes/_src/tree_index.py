@@ -173,7 +173,7 @@ def generate_path_mask(tree, where: tuple[BaseKey, ...], *, is_leaf=None):
     if not match:
         path_leaf, _ = treelib.path_flatten(tree, is_leaf=is_leaf)
         path = "/".join(str(where_i.input) for where_i in where)
-        names = "".join("\n  - " + treelib.keystr(path) for path, _ in path_leaf)
+        names = "".join("\n  - " + tree_repr(path) for path, _ in path_leaf)
         raise LookupError(_NO_LEAF_MATCH.format(where=path, names=names))
 
     return mask
@@ -735,11 +735,10 @@ class at(Generic[T]):
             >>> sp.at.def_rule(NameDtypeShapeMatcher, compare)
             >>> matcher = NameDtypeShapeMatcher('weight', jnp.int32, (3, 3))
             >>> to_symmetric = lambda x: (x + x.T) / 2
-            >>> sp.at(tree)[matcher].apply(to_symmetric)
-            {'bias': Array([0., 0., 0.], dtype=float32),
-             'weight': Array([[0., 2., 4.],
+            >>> sp.at(tree)[matcher].apply(to_symmetric)["weight"]
+            Array([[0., 2., 4.],
                     [2., 4., 6.],
-                    [4., 6., 8.]], dtype=float32)}
+                    [4., 6., 8.]], dtype=float32)
         """
 
         # remove the BaseKey abstraction from the user-facing function

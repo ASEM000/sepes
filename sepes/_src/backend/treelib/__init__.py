@@ -128,8 +128,3 @@ class AbstractTreeLib(abc.ABC):
     @abc.abstractmethod
     def dict_key(key: Hashable) -> Any:
         ...
-
-    @staticmethod
-    @abc.abstractmethod
-    def keystr(keys: Any) -> str:
-        ...

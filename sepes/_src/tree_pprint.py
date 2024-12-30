@@ -676,3 +676,36 @@ if is_package_avaiable("jax"):
         out = str(node.dtype)
         out = out.replace("float", "f").replace("int", "i").replace("complex", "c")
         return f"jax.numpy.{out}"
+
+
+if is_package_avaiable("jax"):
+    import jax
+
+    @tree_repr.def_type(jax.tree_util.GetAttrKey)
+    def _(node: Any, **_: Unpack[PPSpec]) -> str:
+        return f".{node.name!r}"
+
+    @tree_repr.def_type(jax.tree_util.SequenceKey)
+    def _(node: Any, **_: Unpack[PPSpec]) -> str:
+        return f"[{node.idx!r}]"
+
+    @tree_repr.def_type(jax.tree_util.DictKey)
+    def _(node: Any, **_: Unpack[PPSpec]) -> str:
+        return f"[{node.key!r}]"
+
+
+if is_package_avaiable("optree"):
+
+    from sepes._src.backend.treelib.optree import SequenceKey, DictKey, GetAttrKey
+
+    @tree_repr.def_type(SequenceKey)
+    def _(node: Any, **_: Unpack[PPSpec]) -> str:
+        return f"[{repr(node.idx)}]"
+
+    @tree_repr.def_type(DictKey)
+    def _(node: Any, **_: Unpack[PPSpec]) -> str:
+        return f"[{repr(node.key)}]"
+
+    @tree_repr.def_type(GetAttrKey)
+    def _(node: Any, **_: Unpack[PPSpec]) -> str:
+        return f".{node.name}"

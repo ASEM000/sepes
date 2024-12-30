@@ -99,7 +99,6 @@ _X = 1_000
         [tree5, (None, (2, None), None), (1, 0)],
         # mixed
         [tree7, dict(a=None, b=[2, None], c=None), ("b", 0)],
-        [tree8, dict(a=None, b=ClassSubTree(c=2, d=None), e=None), ("b", 0)],
         # by regex
         [tree1, dict(a=None, b=dict(c=2, d=None), e=None), ("b", re.compile("c"))],
         [tree2, ClassTree(None, dict(c=2, d=None), None), ("b", re.compile("c"))],

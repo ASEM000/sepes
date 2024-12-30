@@ -119,7 +119,7 @@ class OpTreeTreeLib(AbstractTreeLib):
             entries = tuple(GetAttrKey(ki) for ki in keys)
             return (tuple(dynamic.values()), keys, entries)
 
-        ot.register_pytree_node(klass, flatten, unflatten, namespace)
+        ot.register_pytree_node(klass, flatten, unflatten, namespace=namespace)
 
     @staticmethod
     def register_static(klass: type[Tree]) -> None:
